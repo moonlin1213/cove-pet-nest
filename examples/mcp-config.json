@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "pet-nest": {
+      "command": "cove-pet-nest",
+      "args": ["mcp"],
+      "env": {"PET_NEST_DATA_DIR": "YOUR_PRIVATE_DATA_DIRECTORY"}
+    }
+  }
+}

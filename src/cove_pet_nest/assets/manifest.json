@@ -1,0 +1,26 @@
+[
+  {
+    "file": "room-light.webp",
+    "sha256": "91a3e480f1b27ab7df4980a21d0c16c6d0d5a234e9c810d62f5b7d61c99ce98b",
+    "source": "Cove generic shared starter artwork",
+    "license": "Shared with this project under MIT by the directing owner; excludes personalized runtime assets"
+  },
+  {
+    "file": "cat-sprites-light.webp",
+    "sha256": "6fc2808f484f7ca1bdffabb34c9f58f7a784c4c58fe6eb4b00b22b819348f6de",
+    "source": "Cove generic shared starter artwork",
+    "license": "Shared with this project under MIT by the directing owner; excludes personalized runtime assets"
+  },
+  {
+    "file": "dog-sprites-light.webp",
+    "sha256": "508be0b2de6522be73c4443f2cbd110baf811329595600824335854272d4a476",
+    "source": "Cove generic shared starter artwork",
+    "license": "Shared with this project under MIT by the directing owner; excludes personalized runtime assets"
+  },
+  {
+    "file": "egg-sprites-light.webp",
+    "sha256": "7df57e98c547889c9fba6ddcab0bb073775ee3e3ce53ee1b8552e0a4ddd2ba2f",
+    "source": "Cove generic shared starter artwork",
+    "license": "Shared with this project under MIT by the directing owner; excludes personalized runtime assets"
+  }
+]

@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>我们的小窝 · Cove</title><link rel="stylesheet" href="/static/nest.css"><script type="module" src="/static/nest.js"></script></head>
+<body>
+<main>
+  <header><p class="eyebrow">COVE · PET NEST</p><h1>我们的小窝</h1><p id="subtitle">一起生活，慢慢长大。</p></header>
+  <section id="login" class="paper" hidden><h2>回到小窝</h2><p>请用本机访问码打开你们的小屋。</p><form id="loginForm"><label>本机访问码<input id="accessCode" type="password" autocomplete="off" required></label><button>进入小窝</button></form></section>
+  <section id="room" hidden>
+    <div class="toolbar"><span class="pantry">粮仓 <strong id="grains">0</strong> 粒</span><button id="adoptOpen">领养宝宝</button></div>
+    <div class="scene"><img class="room-image" src="/starter/room-light.webp" alt="阳光下的绘本小屋，窗边有藤篮和柔软地毯"><div id="pets"></div><p id="empty" class="empty">小窝已经准备好了，<br>等一位宝宝来到你们身边。</p></div>
+    <section class="below"><div class="row"><h2>小窝名册</h2><button id="feedAll">给大家开饭</button></div><p class="quiet">日常对话为小屋积累粮食，照顾让宝宝慢慢长大。</p><div id="roster" class="roster"></div><div class="row"><button id="previous" hidden>上一页</button><button id="next" hidden>下一页</button></div><h2>刚刚的照顾</h2><ul id="events"></ul></section>
+  </section>
+  <p id="message" role="status" aria-live="polite"></p>
+</main>
+<dialog id="adoptDialog"><form id="adoptForm"><h2>接一位宝宝回家</h2><label>想领养谁<select id="kind"><option value="cat">小猫</option><option value="dog">小狗</option><option value="egg">神秘灵宠蛋</option><option value="parrot">鹦鹉</option><option value="snow_leopard">雪豹</option><option value="snake">蛇</option><option value="lizard">蜥蜴</option></select></label><p id="kindHint" class="quiet">小猫和小狗有现成的模样，可以直接到家。</p><label>给宝宝取个名字<input id="petName" maxlength="32" required placeholder="你想叫它什么？"></label><div class="actions"><button type="button" data-close>取消</button><button class="primary">接回家</button></div></form></dialog>
+<dialog id="careDialog"><h2 id="careTitle"></h2><p id="careDetails" class="quiet"></p><div id="careActions" class="actions"><button data-action="comfort">摸摸</button><button data-action="play">陪玩</button><button data-action="feed" class="primary">喂食</button></div><div id="jobInfo" class="quiet"></div><div class="actions"><button data-close>关上</button></div></dialog>
+</body></html>
