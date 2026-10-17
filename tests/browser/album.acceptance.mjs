@@ -1,0 +1,56 @@
+import {createRequire} from 'node:module';
+import {readFile,mkdir} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const require=createRequire(import.meta.url);
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const dir=process.env.NEST_TEST_DATA_DIR;assert(dir,'Use an isolated test instance');
+const creds=JSON.parse(await readFile(`${dir}/credentials.json`,'utf8'));
+const base=process.env.NEST_URL||'http://127.0.0.1:18767';
+await mkdir(`${dir}/screenshots`,{recursive:true});
+const browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_CHANNEL||'chrome'});
+try{
+  for(const [name,width,height] of [['desktop',1280,800],['mobile',390,844]]){
+    const context=await browser.newContext({viewport:{width,height},reducedMotion:'reduce'});
+    const page=await context.newPage();page.setDefaultTimeout(5000);
+    const errors=[];page.on('pageerror',e=>errors.push(e.message));
+    page.on('dialog',dialog=>dialog.accept());
+    await context.request.post(base+'/api/session',{headers:{Authorization:`Bearer ${creds.browser_token}`}});
+    const state=await (await context.request.get(base+'/api/nest')).json();
+    const before=new Set((await (await context.request.get(base+'/api/life-events')).json()).events.map(e=>e.id));
+    const care=await context.request.post(base+'/api/care',{data:{action:'comfort',request_id:`album-${name}-${Date.now()}`,pet_ids:[state.pets[0].id]}});
+    assert.equal(care.status(),200);
+    const source=(await (await context.request.get(base+'/api/life-events')).json()).events.find(e=>!before.has(e.id));
+    assert(source,'A fresh successful care must create a factual photo source');
+    await page.goto(base);await page.locator('#room').waitFor({state:'visible'});
+    await page.locator('#albumOpen').click();
+    await page.locator('#albumDialog').waitFor({state:'visible'});
+    await page.waitForFunction(()=>document.getElementById('stageCounter').textContent.includes('/'));
+    assert.equal(await page.locator('#albumClose').isVisible(),true);
+    assert.match(await page.locator('#stageCounter').innerText(),/3/);
+    await page.locator('#stagePrevious').click();
+    assert.match(await page.locator('#stageCounter').innerText(),/2/);
+    await page.locator('#stagePortrait').click();
+    await page.locator('#photoViewer').waitFor({state:'visible'});
+    await page.keyboard.press('Escape');await page.locator('#photoViewer').waitFor({state:'hidden'});
+    await page.locator('#stagePortrait').hover();
+    assert.equal(await page.locator('#stagePortrait').evaluate(el=>getComputedStyle(el).backgroundSize),'300% 200%');
+    await page.screenshot({path:`${dir}/screenshots/stages-${name}.png`,fullPage:true});
+    await page.locator('#lifeTab').click();
+    await page.locator('[data-photo-view]').first().click();
+    await page.locator('#photoViewer').waitFor({state:'visible'});
+    await page.locator('#viewerClose').click();
+    const prepare=page.locator(`[data-photo-create="${source.id}"]`);
+    await prepare.click();await prepare.waitFor({state:'hidden'});
+    const sources=(await (await context.request.get(base+'/api/life-events')).json()).events;
+    assert(sources.find(e=>e.id===source.id).photo,'Queued photo is durable');
+    await page.locator('#albumRefresh').click();
+    assert.deepEqual(errors,[]);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+    const overflowing=await page.locator('#albumDialog').evaluate(el=>el.scrollWidth>el.clientWidth);
+    assert.equal(overflowing,false);
+    await page.screenshot({path:`${dir}/screenshots/album-${name}.png`,fullPage:true});
+    await page.locator('#albumClose').click();
+    await context.close();
+  }
+  console.log('album desktop/mobile: stage navigation, portrait/photo zoom, truthful sources, photo dedup, no overflow passed');
+}finally{await browser.close();}

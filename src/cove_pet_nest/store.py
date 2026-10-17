@@ -187,8 +187,10 @@ class PetStore:
                     column = 'last_'+action
                     db.execute(f'UPDATE pets SET satiety=?,settled_at=?,growth=growth+?,{column}=? WHERE id=?',
                                (satiety,now,delta,now,row['id']))
-                    db.execute('INSERT INTO care_events(pet_id,actor,action,created_at,growth_delta) VALUES(?,?,?,?,?)',
+                    event=db.execute('INSERT INTO care_events(pet_id,actor,action,created_at,growth_delta) VALUES(?,?,?,?,?)',
                                (row['id'],actor,action,now,delta))
+                    from .history import record_care_source
+                    record_care_source(db,row,action,now,event.lastrowid)
                 results.append({'pet_id':row['id'],'status':status,'growth_delta':delta})
             db.execute('UPDATE household SET grains=? WHERE id=1',(grains,))
             return self.receipt(db,actor,request_id,payload,{'receipt_id':uuid.uuid4().hex,'results':results,'grains':grains})

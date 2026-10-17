@@ -2,12 +2,12 @@ import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
-from fastapi import Depends,FastAPI,HTTPException,Request
+from fastapi import Depends,FastAPI,HTTPException,Request,Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse,JSONResponse
 from fastapi.staticfiles import StaticFiles
 from .auth import bearer,credentials,session_value,valid_session
-from .contracts import Adoption,Care,UsageEvent,RelationshipEvent,Retry
+from .contracts import Adoption,Care,UsageEvent,RelationshipEvent,Retry,LifeEvent,PhotoRequest
 from .ledger import record_usage
 from .relationships import record_relationship
 from .store import NestError
@@ -101,6 +101,28 @@ def create_app(service):
     @app.post('/api/integration/care',dependencies=[Depends(host)])
     def host_care(body: Care):
         return service.care(**body.model_dump(),actor='assistant')
+
+    @app.get('/api/pets/{pet_id}/stages',dependencies=[Depends(browser)])
+    @app.get('/api/integration/pets/{pet_id}/stages',dependencies=[Depends(host)])
+    def history(pet_id:str):
+        return service.album.history(pet_id)
+
+    @app.get('/api/life-events',dependencies=[Depends(browser)])
+    @app.get('/api/integration/life-events',dependencies=[Depends(host)])
+    def life_events(pet_id:str|None=None,offset:int=Query(0,ge=0),limit:int=Query(20,ge=1,le=100)):
+        return service.album.sources(pet_id=pet_id,offset=offset,limit=limit)
+
+    @app.post('/api/integration/life-events',dependencies=[Depends(host)])
+    def record_life(body:LifeEvent):
+        return service.album.record(body)
+
+    @app.post('/api/photos',dependencies=[Depends(browser)])
+    def photo(body:PhotoRequest):
+        return service.album.queue_photo(**body.model_dump(),actor='user')
+
+    @app.post('/api/integration/photos',dependencies=[Depends(host)])
+    def host_photo(body:PhotoRequest):
+        return service.album.queue_photo(**body.model_dump(),actor='assistant')
 
     @app.post('/api/integration/usage',dependencies=[Depends(host)])
     def usage(body: UsageEvent):

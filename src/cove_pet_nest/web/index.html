@@ -6,12 +6,21 @@
   <header><p class="eyebrow">COVE · PET NEST</p><h1>我们的小窝</h1><p id="subtitle">一起生活，慢慢长大。</p></header>
   <section id="login" class="paper" hidden><h2>回到小窝</h2><p>请用本机访问码打开你们的小屋。</p><form id="loginForm"><label>本机访问码<input id="accessCode" type="password" autocomplete="off" required></label><button>进入小窝</button></form></section>
   <section id="room" hidden>
-    <div class="toolbar"><span class="pantry">粮仓 <strong id="grains">0</strong> 粒</span><button id="adoptOpen">领养宝宝</button></div>
+    <div class="toolbar"><span class="pantry">粮仓 <strong id="grains">0</strong> 粒</span><div class="toolbar-actions"><button id="albumOpen">成长相册</button><button id="adoptOpen">领养宝宝</button></div></div>
     <div class="scene"><img class="room-image" src="/starter/room-light.webp" alt="阳光下的绘本小屋，窗边有藤篮和柔软地毯"><div id="pets"></div><p id="empty" class="empty">小窝已经准备好了，<br>等一位宝宝来到你们身边。</p></div>
     <section class="below"><div class="row"><h2>小窝名册</h2><button id="feedAll">给大家开饭</button></div><p class="quiet">日常对话为小屋积累粮食，照顾让宝宝慢慢长大。</p><div id="roster" class="roster"></div><div class="row"><button id="previous" hidden>上一页</button><button id="next" hidden>下一页</button></div><h2>刚刚的照顾</h2><ul id="events"></ul></section>
   </section>
   <p id="message" role="status" aria-live="polite"></p>
 </main>
 <dialog id="adoptDialog"><form id="adoptForm"><h2>接一位宝宝回家</h2><label>想领养谁<select id="kind"><option value="cat">小猫</option><option value="dog">小狗</option><option value="egg">神秘灵宠蛋</option><option value="parrot">鹦鹉</option><option value="snow_leopard">雪豹</option><option value="snake">蛇</option><option value="lizard">蜥蜴</option></select></label><p id="kindHint" class="quiet">小猫和小狗有现成的模样，可以直接到家。</p><label>给宝宝取个名字<input id="petName" maxlength="32" required placeholder="你想叫它什么？"></label><div class="actions"><button type="button" data-close>取消</button><button class="primary">接回家</button></div></form></dialog>
-<dialog id="careDialog"><h2 id="careTitle"></h2><p id="careDetails" class="quiet"></p><div id="careActions" class="actions"><button data-action="comfort">摸摸</button><button data-action="play">陪玩</button><button data-action="feed" class="primary">喂食</button></div><div id="jobInfo" class="quiet"></div><div class="actions"><button data-close>关上</button></div></dialog>
+<dialog id="careDialog"><h2 id="careTitle"></h2><p id="careDetails" class="quiet"></p><div id="careActions" class="actions"><button data-action="comfort">摸摸</button><button data-action="play">陪玩</button><button data-action="feed" class="primary">喂食</button></div><div id="jobInfo" class="quiet"></div><div class="actions"><button id="careAlbum">成长相册</button><button data-close>关上</button></div></dialog>
+<dialog id="albumDialog" class="album-dialog" aria-labelledby="albumTitle">
+  <div class="album-heading"><h2 id="albumTitle">一起长大的日子</h2><button id="albumClose" aria-label="关闭相册">✕</button></div>
+  <div class="album-controls"><label>宝宝<select id="albumPet" aria-label="选择相册里的宝宝"></select></label><button id="albumRefresh">刷新相册</button></div>
+  <div class="album-tabs" role="tablist" aria-label="相册内容"><button id="stageTab" role="tab" aria-selected="true" aria-controls="stagePanel">成长相册</button><button id="lifeTab" role="tab" aria-selected="false" aria-controls="lifePanel">生活照片</button></div>
+  <p id="albumMessage" class="quiet" role="status"></p>
+  <section id="stagePanel" role="tabpanel" aria-labelledby="stageTab"><div class="album-book"><button id="stagePortrait" class="book-portrait" aria-label="放大阶段画像"></button><div class="book-story"><p class="eyebrow">OUR GROWING DAYS</p><h3 id="stageTitle"></h3><p id="stageDate" class="quiet"></p><p id="stageFeatures"></p><p id="stageCurrent" class="quiet"></p></div></div><div class="album-pagination"><button id="stagePrevious">前一页</button><span id="stageCounter"></span><button id="stageNext">后一页</button></div><div id="growthJobs" class="quiet"></div></section>
+  <section id="lifePanel" role="tabpanel" aria-labelledby="lifeTab" hidden><p class="quiet">把真实相处的片刻，留成一张生活照。</p><p id="photoConfig" class="quiet"></p><div id="lifePhotos" class="life-photos"></div><div class="album-pagination"><button id="lifePrevious">上一页</button><span id="lifeCounter"></span><button id="lifeNext">下一页</button></div></section>
+</dialog>
+<dialog id="photoViewer" class="photo-viewer" aria-label="查看相册大图"><button id="viewerClose" aria-label="关闭大图">✕</button><div id="viewerPicture"></div><p id="viewerCaption" class="quiet"></p></dialog>
 </body></html>

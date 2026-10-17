@@ -30,4 +30,10 @@ def create_mcp(service):
     def pet_care(action:str,request_id:str,pet_ids:list[str]|None=None,scope:str='selected'):
         """Feed, play or comfort as the AI. Only successful receipts mean care happened; reuse request_id on retries."""
         return result(lambda:service.care(**Care(action=action,request_id=request_id,pet_ids=pet_ids,scope=scope).model_dump(),actor='assistant'))
+
+    @server.tool(name='pet_album',annotations=ToolAnnotations(read_only_hint=True))
+    def pet_album(pet_id:str,offset:int=0,limit:int=20):
+        """Read activated stage portraits and factual life-photo sources. Never queues paid images."""
+        return result(lambda:{'history':service.album.history(pet_id),
+            'life':service.album.sources(pet_id=pet_id,offset=offset,limit=limit)})
     return server

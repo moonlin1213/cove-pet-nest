@@ -14,7 +14,7 @@ def test_real_stdio_tools_and_assistant_identity(tmp_path):
             async with ClientSession(*streams) as session:
                 await session.initialize()
                 names={t.name for t in (await session.list_tools()).tools}
-                assert names=={'nest_status','pet_adopt','pet_care'}
+                assert names=={'nest_status','pet_adopt','pet_care','pet_album'}
                 result=await session.call_tool('pet_adopt',{'kind':'cat','name':'团团','request_id':'mcp-adopt'})
                 assert result.is_error is False
                 import json
@@ -23,4 +23,8 @@ def test_real_stdio_tools_and_assistant_identity(tmp_path):
                 assert json.loads(result.content[0].text)['results'][0]['status']=='fed'
                 result=await session.call_tool('nest_status',{})
                 assert json.loads(result.content[0].text)['events'][0]['actor']=='assistant'
+                result=await session.call_tool('pet_album',{'pet_id':pet['id']})
+                album=json.loads(result.content[0].text)
+                assert album['history']['stages'][0]['stage']==0
+                assert album['life']['total']==1 and album['life']['events'][0]['kind']=='care_feed'
     asyncio.run(run())

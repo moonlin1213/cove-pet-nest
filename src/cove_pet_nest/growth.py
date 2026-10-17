@@ -48,3 +48,62 @@ def prepare_hatch(store,pet_id,*,now):
                'customized':signal_customized,'traits':traits}
         db.execute('INSERT INTO hatches VALUES(?,?)',(pet_id,encode(brief)))
         return brief
+
+
+def growth_target(pet,current,store):
+    target=pet['stage']+1
+    rules=({1:(12,2),2:(40,7),3:(100,14),4:(220,21)} if pet['kind']=='egg'
+           else {1:(40,7),2:(100,14),3:(220,21)})
+    required,days=rules.get(target,(current['growth_at_activation']+120,30))
+    anchor=pet['created_at'] if target==1 else current['activated_at']
+    elapsed=(date.fromisoformat(store.day(store.now()))-date.fromisoformat(store.day(anchor))).days
+    return {'stage':target,'required_growth':required,'required_days':days,'elapsed_days':max(0,elapsed),
+            'ready':pet['growth']>=required and elapsed>=days}
+
+
+def prepare_next_stage(store,pet_id):
+    """Freeze exactly one next appearance from bounded signals and prior identity."""
+    with store.connect() as db:
+        pet=db.execute('SELECT * FROM pets WHERE id=?',(pet_id,)).fetchone()
+        if not pet:raise NestError('pet_not_found',404)
+        if pet['status']!='ready':return None
+        current=db.execute('SELECT * FROM pet_stages WHERE pet_id=? AND stage=?',(pet_id,pet['stage'])).fetchone()
+        if not current:return None
+        progress=growth_target(pet,current,store)
+        if not progress['ready']:return None
+        old=db.execute('SELECT brief FROM stage_briefs WHERE pet_id=? AND stage=?',(pet_id,progress['stage'])).fetchone()
+        if old:return json.loads(old['brief'])
+        previous=json.loads(current['brief'])
+        snapshot=dict(pet);active=dict(current)
+    if snapshot['kind']=='egg' and snapshot['stage']==0:
+        brief=prepare_hatch(store,pet_id,now=store.now())
+        if brief is None:return None
+        brief={**brief,'features':[brief['marking']],'base_stage':0,'reference_required':False}
+    else:
+        scores={key:0 for key in DIMENSIONS};daily={}
+        with store.connect() as db:
+            if db.execute("SELECT 1 FROM sqlite_master WHERE name='relationships'").fetchone():
+                for row in db.execute('SELECT * FROM relationships WHERE occurred_at>=? AND occurred_at<=?',(active['activated_at'],store.now())):
+                    for key,value in json.loads(row['payload'])['signals'].items():
+                        bucket=(store.day(row['occurred_at']),key);daily[bucket]=min(3,daily.get(bucket,0)+value)
+            for (_,key),value in daily.items():scores[key]+=value
+        dimension=max(scores,key=scores.get) if any(scores.values()) else ('reading','watching','listening','affection','exploration')[int(hashlib.sha256(f"{pet_id}:{progress['stage']}".encode()).hexdigest()[:4],16)%5]
+        index=progress['stage']
+        theme={'reading':'层叠书页形','watching':'流星形','listening':'风铃形','affection':'心形','exploration':'叶芽形'}[dimension]
+        surface={'snake':'软鳞','lizard':'软鳞','parrot':'羽簇'}.get(snapshot['kind'],'绒簇')
+        placement=('额心','背侧','尾尖')[(index-1)%3]
+        feature=f'{placement}新增第{(index-1)//3+1}簇{theme}{surface}'
+        features=list(previous.get('features',[previous['marking']] if previous.get('marking') else []))+[feature]
+        traits=json.loads(snapshot['traits_json']) if snapshot['traits_json'] else temperament(snapshot['seed'])
+        trait=DIMENSIONS[dimension][1];traits[trait]=round(min(100,traits[trait]+3),2)
+        brief={'stage':index,'kind':'fantasy' if snapshot['kind']=='egg' else snapshot['kind'],
+            'identity':previous.get('identity',snapshot['kind']),'palette':previous.get('palette','preserve reference colors'),
+            'dimension':dimension,'customized':any(scores.values()),'features':features,'marking':feature,
+            'traits':traits,'base_stage':snapshot['stage'],'reference_required':True}
+    brief['base_asset_ref']=snapshot['asset_ref']
+    brief['starter_kind']=snapshot['kind'] if snapshot['asset_ref'] is None else None
+    with store.write() as db:
+        live=db.execute('SELECT stage,asset_ref FROM pets WHERE id=?',(pet_id,)).fetchone()
+        if live['stage']!=snapshot['stage'] or live['asset_ref']!=snapshot['asset_ref']:return None
+        db.execute('INSERT OR IGNORE INTO stage_briefs VALUES(?,?,?)',(pet_id,brief['stage'],encode(brief)))
+        return json.loads(db.execute('SELECT brief FROM stage_briefs WHERE pet_id=? AND stage=?',(pet_id,brief['stage'])).fetchone()[0])

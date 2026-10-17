@@ -44,13 +44,21 @@ Cove 灵宠屋把这些小事放进一间温暖的小屋。它是一个可以接
 
 **这些信号由接入者的宿主应用提供。** 核心不会自行读取私人聊天，也不会自动调用另一个模型来猜测感情。关系摘要留在本机，不发给图片服务。
 
-### 4. 可以带回自己的 AI 小世界
+### 4. 养大的样子，与一起生活的片刻，都可以留住
+
+宝宝会随着成长值和陪伴天数继续变化。它不是换一张毫无关系的图：新的模样参考上一次的外观，保留原有身份与特征，再逐步长出书页形绒簇、风铃形羽簇或叶芽形尾尖等变化。成长主题来自宿主提供的有界相处信号，没有信号时使用稳定的个体选择；不另开模型解读私人故事。新图成功后才会启用，旧模样收进成长相册，随时可以翻回去看。
+
+喂食、陪玩、摸摸的真实片刻也会留下记录。你可以主动点“留下这张生活照”，让宝宝按当时的样子出现在一幅生活场景里；宿主还可以记录一起读书、看故事、听音乐、探索和陪伴，最多四个宝宝一起入画。重看相册不会触发生图，照片不会额外加成长或扣粮。
+
+**第一次接回家的小小身影，和后来一点点长大的模样，都在同一本相册里。** 图片生成需要接入者自己的服务；持续蜕变和生活照需要支持参考图的编辑接口。
+
+### 5. 可以带回自己的 AI 小世界
 
 小屋运行在你的本机，宠物、粮仓和照顾记录保存在自己的数据目录。你可以给自己和 AI 设置显示名，导入普通宠物的专属模样，或配置自己的图片服务孵化神秘宝宝。
 
 支持 MCP 的应用可以直接接工具；已有后端的应用也可以走 HTTP。模型、聊天界面和 Provider 的选择由宿主决定。
 
-## 第一版可以玩到什么
+## v0.2.0 可以玩到什么
 
 | 功能 | 当前行为 |
 | --- | --- |
@@ -60,9 +68,14 @@ Cove 灵宠屋把这些小事放进一间温暖的小屋。它是一个可以接
 | 神秘灵宠蛋 | 先养蛋；成长达到 12 且跨两个本地日期后准备首次孵化，需要图片服务 |
 | 共同照顾 | 喂食、陪玩、摸摸；网页记为用户，MCP / 宿主工具接口记为 AI |
 | 本地小屋 | 网页场景、粮仓、宠物名册、照顾回执和图片任务状态 |
+| 成长相册 | 收好每次成功启用的外观，翻页、看特征、放大查看 |
+| 生活照片 | 真实照顾或宿主生活事件，主动请求拍照，保留当时的模样；支持多宝宝合照 |
+| 持续蜕变 | 成长值与相处天数双门槛，参考上一阶段积累新特征，保留旧模样 |
 | 备份恢复 | 一致的 SQLite 备份、图片与哈希校验，恢复到新目录 |
 
-后续会继续加入 **成长相册**、**音乐日记**，让共同生活留下更多可回看的片段。
+**成长相册与生活照片已在 v0.2.0 加入。** 后续会继续加入 **音乐日记**，让共同生活留下更多可回看的片段。
+
+已有 v0.1.0 数据的接入者请先看 [升级说明](docs/upgrade-v0.2.md)，再升级并沿用原数据目录。
 
 ## 从零启动
 
@@ -116,6 +129,7 @@ cove-pet-nest serve --port 8767
 | `nest_status` | 查看宠物、粮仓和真实照顾回执，支持分页 |
 | `pet_adopt` | 按用户要求领养宠物 |
 | `pet_care` | 喂食、陪玩或摸摸，返回真实操作结果 |
+| `pet_album` | 只读阶段相册与生活事件，支持分页，不触发生图 |
 
 可以在接入后试着说：“领养一只叫团团的小猫。”“看看宝宝有没有饿。”“陪它玩一会儿。”这些名字只是虚构示例。
 
@@ -138,11 +152,14 @@ cove-pet-nest serve --port 8767
 | 接口 | 用途 |
 | --- | --- |
 | `POST /api/integration/usage` | 回复成功保存后，上报计数、字节长度和稳定事件 ID，触发换粮 |
-| `POST /api/integration/relationship` | 上报共同相处信号，参与神秘蛋首次孵化 |
+| `POST /api/integration/relationship` | 上报共同相处信号，参与首次孵化与后续成长主题 |
 | `GET /api/integration/nest` | 没有 MCP 时，由后端查询小屋状态 |
 | `POST /api/integration/adoptions` | 没有 MCP 时，由后端执行 AI 领养 |
 | `POST /api/integration/care` | 没有 MCP 时，由后端执行 AI 照顾 |
-| `POST /api/integration/assets/{pet_id}` | 导入普通宠物的透明六格图集 |
+| `POST /api/integration/assets/{pet_id}` | 成长前导入普通宠物的透明六格图集 |
+| `GET /api/integration/pets/{pet_id}/stages` | 读取成长相册 |
+| `GET/POST /api/integration/life-events` | 读取或记录有界生活事件 |
+| `POST /api/integration/photos` | 为已有事件明确请求生活照 |
 
 凭据由后端持有，不要放进模型提示、网页 JavaScript 或公开配置。关系信号包含 `affection`、`reading`、`watching`、`listening`、`exploration` 五个有界维度；可选的短摘要只保存在本机，不在普通状态或 MCP 中返回。
 
@@ -154,9 +171,9 @@ cove-pet-nest serve --port 8767
 
 猫、狗、蛋已经有通用素材。其他普通宠物可以由宿主导入 **透明、3 列 × 2 行**的六格图集，或配置图片生成服务。神秘蛋的首次孵化使用冻结的外观描述生成图集。
 
-图片服务需要设置 `PET_NEST_IMAGE_ENDPOINT`、`PET_NEST_IMAGE_MODEL`、`PET_NEST_IMAGE_KEY`。首版支持返回 `data[0].b64_json` 的 OpenAI-compatible JSON 生成接口，服务还需支持相应尺寸与透明背景；不是任意图片接口都能直接接入。
+图片服务需要设置 `PET_NEST_IMAGE_ENDPOINT`、`PET_NEST_IMAGE_MODEL`、`PET_NEST_IMAGE_KEY`。初始生成支持返回 `data[0].b64_json` 的 OpenAI-compatible JSON 生成接口，服务还需支持相应尺寸与透明背景；不是任意图片接口都能直接接入。
 
-外发生成描述不包含姓名、聊天正文或关系摘要。导入普通宠物的模样后，旧的初始生成任务会终结，晚到结果不会覆盖导入图。生成结果不确定时不会自动反复发送；手动重试会明确提示可能已有费用。
+持续蜕变和生活照还需配置 `PET_NEST_IMAGE_EDIT_ENDPOINT`，使用 multipart 参考图编辑。**这两类请求会将宝宝的外观图集发给你选择的图片服务**；生成描述不包含姓名、聊天正文或关系摘要。导入普通宠物的模样后，旧的初始生成任务会终结，晚到结果不会覆盖导入图。生成结果不确定时不会自动反复发送；手动重试会明确提示可能已有费用。
 
 接口要求、图片格式、任务恢复和费用边界见 **[图片服务说明](docs/images.md)**。真实生成质量与费用取决于接入者选择的服务，本版没有完成真实 Provider 生图验收。
 
@@ -166,11 +183,11 @@ cove-pet-nest serve --port 8767
 pip install -e '.[dev]'
 pytest -q
 python -m build --no-isolation
-python scripts/check_release.py --artifact dist/cove_pet_nest-0.1.0-py3-none-any.whl
-python scripts/check_release.py --artifact dist/cove_pet_nest-0.1.0.tar.gz
+python scripts/check_release.py --artifact dist/cove_pet_nest-0.2.0-py3-none-any.whl
+python scripts/check_release.py --artifact dist/cove_pet_nest-0.2.0.tar.gz
 ```
 
-本地候选在 Python 3.13 / macOS ARM64 验证，30 项测试通过。实际 wheel 在干净环境中安装，验证了 HTTP、真实 stdio MCP 调用、换粮去重和离线首次孵化。Chrome 的 1280×800 与 390×844 网页检查通过；尚未完成真实手机、Windows / Linux 或第三方 AI 应用验收。
+v0.2.0 在 Python 3.13 / macOS ARM64 验证，45 项测试覆盖照顾、换粮、持续成长、历史外观、生活照去重、参考图请求、断线恢复、HTTP 身份、真实 stdio MCP 和备份恢复。实际 v0.1.0 安装生成的隔离数据升级验证通过。Chrome 的 1280×800 与 390×844 相册翻页、放大、照片入口和基本小屋流程均有网页检查；详细发布验证见 [验收记录](docs/privacy-review.md)。尚未完成真实手机、Windows / Linux 或第三方 AI 应用验收。
 
 用户数据、个性化图片、凭据、日志和恢复备份不得加入源码仓库或发行包。项目附带的示例均为虚构资料，网页截图来自隔离测试实例；四项通用 starter 素材的来源范围与 SHA-256 记录在 [素材清单](src/cove_pet_nest/assets/manifest.json)。
 
@@ -178,6 +195,8 @@ python scripts/check_release.py --artifact dist/cove_pet_nest-0.1.0.tar.gz
 
 - [隐私与验收记录](docs/privacy-review.md)
 - [本地备份与恢复](docs/backup.md)
+- [v0.2.0 升级说明](docs/upgrade-v0.2.md)
+- [更新记录](CHANGELOG.md)
 - [许可与素材归属](NOTICE.md)
 
 本项目使用 **MIT License**，保留上游版权声明。欢迎在自己的 AI 应用里接入，也欢迎围绕核心玩法、接入体验和后续成长记录提出改进。

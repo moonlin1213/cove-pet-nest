@@ -1,8 +1,10 @@
+import {mountAlbum} from './album.js';
 const $=id=>document.getElementById(id);
 let state=null, selected=null, offset=0;
 const species={cat:'小猫',dog:'小狗',egg:'神秘灵宠蛋',parrot:'鹦鹉',snow_leopard:'雪豹',snake:'蛇',lizard:'蜥蜴'};
 const statuses={fed:'吃饱啦',played:'一起玩了一会儿',comforted:'收到了摸摸',full:'已经吃饱了',no_food:'粮仓暂时没有粮食',pending:'宝宝的模样还在准备'};
 function tell(text){$('message').textContent=text;}
+const album=mountAlbum({api,getState:()=>state,tell});
 async function api(path,body,headers={}){
   const response=await fetch(path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json',...headers},body:body===undefined?undefined:JSON.stringify(body)});
   const value=await response.json();
@@ -41,7 +43,8 @@ function render(){
 }
 function openCare(pet){
   selected=pet.id;$('careTitle').textContent=pet.name;
-  $('careDetails').textContent=`${species[pet.kind]} · 饱腹 ${Math.round(pet.satiety)} · 成长 ${Math.round(pet.growth)}`;
+  $('careDetails').textContent=`${species[pet.kind]} · 第 ${pet.stage} 阶段 · 饱腹 ${Math.round(pet.satiety)} · 成长 ${Math.round(pet.growth)}`;
+  if(pet.growth_progress){const g=pet.growth_progress;$('careDetails').textContent+=`。下一阶段：成长 ${g.required_growth}，相处 ${g.elapsed_days}/${g.required_days} 天。`;}
   $('careActions').hidden=pet.status==='pending';$('jobInfo').replaceChildren();
   if(pet.kind==='egg'&&pet.stage===0){const p=document.createElement('p');p.textContent='照顾与共同相处会影响它未来的模样。成长达到门槛、相处满两天后，神秘蛋会开始准备孵化。';$('jobInfo').append(p);}
   pet.jobs.forEach(job=>{
@@ -59,6 +62,7 @@ function openCare(pet){
   if(!$('careDialog').open)$('careDialog').showModal();
 }
 $('adoptOpen').onclick=()=>$('adoptDialog').showModal();
+$('careAlbum').onclick=()=>{$('careDialog').close();album.open(selected);};
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
 $('kind').onchange=()=>{$('kindHint').textContent=['cat','dog'].includes($('kind').value)?'小猫和小狗有现成的模样，可以直接到家。':$('kind').value==='egg'?'先领一颗未知的蛋；未来的模样由你们的相处共同塑造，孵化需要图片服务。':'这一种宝宝需要图片服务或导入专属模样，准备好后才会来到小屋。';};
 $('adoptForm').onsubmit=async e=>{e.preventDefault();const submit=e.submitter;submit.disabled=true;try{const result=await api('/api/adoptions',{kind:$('kind').value,name:$('petName').value,request_id:crypto.randomUUID()});$('adoptDialog').close();$('petName').value='';await load();tell(result.status==='preparing'?'宝宝的模样正在准备。':'宝宝到家了。');}catch(error){tell(error.message);}finally{submit.disabled=false;}};

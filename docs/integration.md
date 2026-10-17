@@ -68,3 +68,36 @@
 导入成功会终结该宠物的初始生成任务，后续不再为它提交请求，已在进行的晚到结果也不会覆盖导入图。如果请求此前已发送，导入无法撤销 Provider 侧可能发生的费用。
 
 可运行的上报示例在 examples/host_events.py。示例不会创建真实关系、调用图片服务或自动领养，先在测试实例中领养。
+
+## 5. 读取相册和记录生活片刻（v0.2.0）
+
+MCP 新增只读 `pet_album(pet_id, offset=0, limit=20)`：返回阶段相册和有分页的生活事件。它不会调用图片服务。原来的三个工具与照顾请求保持兼容。
+
+| 宿主接口 | 用途 |
+| --- | --- |
+| GET /api/integration/pets/{pet_id}/stages | 阶段历史、当前外观、冻结特征和任务状态 |
+| GET /api/integration/life-events?pet_id=PET_ID&offset=0&limit=20 | 生活事件与照片任务；pet_id 可省略，limit 1–100 |
+| POST /api/integration/life-events | 记录真实发生的共同生活事件 |
+| POST /api/integration/photos | 根据已有事件明确排队一张生活照 |
+
+记录事件示例（将时间与宠物 ID 换为本次真实值）：
+
+```json
+{"event_id":"demo-reading-1","occurred_at":1800000000,"kind":"reading","pet_ids":["PET_ID_FROM_STATUS"]}
+```
+
+`kind` 只接受 `reading`、`watching`、`listening`、`exploration`、`companionship`；pet_ids 必须是 1–4 个不同的现有宝宝。事件不能早于可用的外观记录，也不能超过当前时间 60 秒。服务按事件时刻查找已启用的外观并冻结引用。相同 event_id 与内容重试返回原记录，改内容返回 409；姓名、聊天、书名、照片说明等额外字段均拒绝。
+
+成功照顾由核心自动产生事件，不需要宿主重复上报。关系信号和生活事件是两个独立用途：前者决定成长主题，后者提供照片的事实来源；需要两者时分别发送。服务信任宿主报告的事件，不会自动读取或核实宿主的聊天内容。
+
+用返回的 `id` 请求照片：
+
+```json
+{"event_id":"EVENT_ID_FROM_LIFE_EVENTS","request_id":"demo-photo-1"}
+```
+
+照片接口固定操作者为 assistant。同一片刻最多一个任务，即使换 request_id 也返回同一个任务；图片处理由 `serve` 推进。请在用户明确想留下该片刻时调用，生成可能计费。图片配置、额度、失败和未知结果规则见 [图片服务说明](images.md)。`asset_ref` 为本地图片文件名，返回的 `asset_url` 相对于小屋网页，`/api/assets/` 使用浏览器会话认证，不能在外站直接当公开图片链接。
+
+对应的网页接口是 GET `/api/pets/{pet_id}/stages`、GET `/api/life-events`、POST `/api/photos`，使用已有浏览器登录，会把操作者固定为 user。图片任务查询和手动重试使用 `/api/jobs/{id}` 与 `/api/jobs/{id}/retry`。不向宿主模型暴露任何本机凭据。
+
+普通宠物初始图集导入仅在开始成长前可用。v0.2.0 已冻结下一阶段或完成成长后，导入返回 `appearance_locked_after_growth`；现有外观、照片和历史均保留。

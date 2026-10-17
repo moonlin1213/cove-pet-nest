@@ -67,3 +67,21 @@ class Care(StrictModel):
 class Retry(StrictModel):
     request_id: str = Field(min_length=1,max_length=128)
     acknowledge_unknown: bool = False
+
+
+class LifeEvent(StrictModel):
+    event_id: str = Field(min_length=1,max_length=128)
+    occurred_at: float = Field(ge=0,allow_inf_nan=False)
+    kind: Literal['reading','watching','listening','exploration','companionship']
+    pet_ids: list[str] = Field(min_length=1,max_length=4)
+
+    @field_validator('pet_ids')
+    @classmethod
+    def participants(cls,value):
+        if len(set(value))!=len(value):raise ValueError('Duplicate participant')
+        return sorted(value)
+
+
+class PhotoRequest(StrictModel):
+    event_id: str = Field(min_length=1,max_length=128)
+    request_id: str = Field(min_length=1,max_length=128)

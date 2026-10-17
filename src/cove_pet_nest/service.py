@@ -1,12 +1,14 @@
 from .store import PetStore
 from .images.service import ImageJobService
 from .images.transport import configured_transport
-from .growth import prepare_hatch
+from .growth import prepare_next_stage,growth_target
+from .album import AlbumService
 
 
 class NestService:
     def __init__(self,settings,store,jobs):
         self.settings,self.store,self.jobs=settings,store,jobs
+        self.album=AlbumService(store,jobs)
 
     def state(self,*,offset=0,limit=100):
         state=self.store.state(offset=offset,limit=limit)
@@ -14,10 +16,19 @@ class NestService:
                      image_generation_configured=self.jobs.transport is not None)
         for pet in state['pets']:
             pet['jobs']=self.jobs.for_pet(pet['id'])
+            with self.store.connect() as db:
+                current=db.execute('SELECT * FROM pet_stages WHERE pet_id=? AND stage=?',(pet['id'],pet['stage'])).fetchone()
+                original=db.execute('SELECT * FROM pets WHERE id=?',(pet['id'],)).fetchone()
+                pet['growth_progress']=growth_target(original,current,self.store) if current and pet['status']=='ready' else None
+        state['image_edit_configured']=self.jobs.transport is not None and getattr(self.jobs.transport,'can_reference',True)
         return state
 
     def adopt(self,kind,name,request_id,*,actor):
         result=self.store.adopt(kind,name,request_id,actor=actor)
+        from .history import record_stage
+        with self.store.write() as db:
+            pet=db.execute('SELECT * FROM pets WHERE id=?',(result['pet']['id'],)).fetchone()
+            if pet['status']=='ready':record_stage(db,pet,pet['created_at'])
         if result['pet']['status']=='pending':
             pet=result['pet']
             self.jobs.enqueue(pet['id'],pet['id']+'-initial',{'stage':0,'kind':pet['kind']})
@@ -28,11 +39,11 @@ class NestService:
 
     async def tick(self):
         with self.store.connect() as db:
-            eggs=[r['id'] for r in db.execute("SELECT id FROM pets WHERE kind='egg' AND stage=0 AND growth>=12 LIMIT 100")]
-        for pet_id in eggs:
-            brief=prepare_hatch(self.store,pet_id,now=self.store.now())
+            pets=[r['id'] for r in db.execute("SELECT id FROM pets WHERE status='ready' ORDER BY created_at,id")]
+        for pet_id in pets:
+            brief=prepare_next_stage(self.store,pet_id)
             if brief:
-                self.jobs.enqueue(pet_id,pet_id+'-hatch',brief)
+                self.jobs.enqueue(pet_id,pet_id+'-stage-'+str(brief['stage']),brief)
         return await self.jobs.run_once()
 
 
