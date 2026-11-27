@@ -23,6 +23,11 @@ def dispatch(service, config, method, path, headers, raw):
     try:
         if method=='GET' and path=='/api/pet-nest/ecosystem':
             return 200, {'pets':[profile(p) for p in selected(service,allowed)]}
+        if method=='POST' and path=='/care-log':
+            from .affinity import record
+            if not 0<len(raw)<=512:return 400, {}
+            with service.store.write() as db:
+                return 200,record(db,allowed,json.loads(raw))
         if method!='POST' or path not in ('/companion','/api/pet-nest/care'):
             return 404, {}
         if not 0<len(raw)<=(512 if path=='/companion' else 2048):

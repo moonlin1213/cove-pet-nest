@@ -179,3 +179,28 @@ def test_menu_card_uses_room_timezone_for_sync_time(tmp_path,monkeypatch):
     monkeypatch.setattr(ImageDraw.ImageDraw,'text',capture)
     make_files(service,[pet],'a')
     assert any('同步 12/31 17:30' in t for t in labels)
+
+
+def test_offline_affinity_replay_returns_in_next_pairing_pack(tmp_path):
+    from cove_pet_nest.passport.affinity import total
+    from cove_pet_nest.passport.bridge import dispatch
+    from types import SimpleNamespace
+    import sqlite3
+    c,creds=client_for(tmp_path)
+    login(c,creds)
+    a,b=adopt(c,'cat'),adopt(c,'dog')
+    dbfile=tmp_path/'pets.sqlite3'
+    config={'token':'fixture','pets':[a,b]}
+    service=SimpleNamespace(store=SimpleNamespace(write=lambda: sqlite3.connect(dbfile)))
+    request=json.dumps(['passport-'+'e'*32,b,'clean',3]).encode()
+    for i in range(2):
+        code,receipt=dispatch(service,config,'POST','/care-log',{'Authorization':'Bearer fixture'},request)
+        assert code==200
+    with sqlite3.connect(dbfile) as db:
+        assert [total(db,pet) for pet in (a,b)]==[0,3]
+    package=c.post('/api/passport/pack',json={'host':'192.168.1.23','pets':[a,b],'slot':'a'})
+    assert package.status_code==200
+    roster=next(f for f in package.json()['files'] if f['path'].endswith('/roster.json'))
+    import base64
+    members=json.loads(base64.b64decode(roster['data']))['pets']
+    assert [(m['id'],m['kind'],m['bond']) for m in members]==[(a,'cat',0),(b,'dog',3)]

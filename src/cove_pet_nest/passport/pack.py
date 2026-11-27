@@ -49,6 +49,8 @@ def selected(service, ids):
             if row is None or row['status'] != 'ready':
                 raise NestError('passport_pet_unavailable')
             pet = service.store.pet(row,service.store.now())
+            from .affinity import care_profile
+            pet.update(care_profile(db,pet,service.store.now()))
             pets.append(pet)
     return pets
 
@@ -160,7 +162,8 @@ def make_files(service, ids, slot):
         add('/portrait/'+meta['file'],data)
         for pose,raw in menu_frames(pet,atlas,room,sync_time):
             add(nest+stem+'/pose'+str(pose)+'.rgb',raw)
-        roster.append({'id':ident,'name':pet['name'],'growth':pet['growth'],'dir':group+'/'+stem+'/'})
+        roster.append({'id':ident,'name':pet['name'],'growth':pet['growth'],'stage':pet['stage'],'kind':pet['kind'],
+                       **{k:pet[k] for k in ('born','age_days','bond') if k in pet},'dir':group+'/'+stem+'/'})
         moods[ident] = {'traits':pet['traits'],'wish':profile(pet)['wish']['action']}
     for name,obj in [('roster',{'pets':roster}),('moods',moods),('portrait',index)]:
         add(nest+name+'.json',json.dumps(obj,separators=(',',':')).encode())
