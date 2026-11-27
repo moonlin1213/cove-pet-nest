@@ -1,0 +1,17 @@
+.pairing{max-width:620px;padding-bottom:48px}
+.pairing a,.pairing summary{color:#735a3a}
+.pairing header{text-align:left;padding:28px 0 8px}
+.pairing h1{letter-spacing:.06em}
+.pairing input:not([type=checkbox]){border:0;border-bottom:1px solid #a59374;border-radius:0;background:transparent;max-width:360px}
+.pairing input[type=checkbox]{display:inline;width:1em;height:1em;margin:0 10px 0 0;accent-color:#66563c}
+.pairing fieldset{border:0;border-top:1px solid #cdbda3;margin:16px 0 26px;padding:8px 0}
+.pairing legend{padding:0 12px 0 0;font-size:18px;color:#5c4831}
+.pairing button{border:0;border-radius:0;border-bottom:1px solid #806b4e;background:transparent;padding:8px 2px;font-size:16px}
+.pairing #write{color:#50391b}
+.pairing progress{width:100%;accent-color:#786743;margin-top:16px}
+.pairing #choices{display:flex;flex-wrap:wrap;gap:6px 20px}
+.pairing #choices label{display:flex;align-items:center;margin:0;padding:5px 0;cursor:pointer}
+.pairing .pet-art{width:48px;height:48px;background-size:300% 200%;background-position:0 0;display:inline-block;margin-right:5px}
+.pairing #notice{min-height:1.6em;color:#654724}
+.pairing details{margin:16px 0}
+.pairing [hidden]{display:none!important}

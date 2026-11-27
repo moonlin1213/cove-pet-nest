@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>带上我的灵宠 · Cove</title>
+  <link rel="stylesheet" href="/static/nest.css"><link rel="stylesheet" href="/static/passport.css">
+  <script type="module" src="/static/passport.mjs"></script>
+</head>
+<body><main class="pairing">
+  <a href="/">‹ 回到灵宠屋</a>
+  <header><h1>今天带谁出门？</h1><p>用 USB 数据线接上已安装公开版的 FoloToy，再选自己的灵宠。</p></header>
+  <section id="login" hidden><h2>进入自己的小屋</h2>
+    <p>在这台电脑上打开小屋的登录链接，或在此输入本机访问码。</p>
+    <form id="login-form"><label>本机访问码<input type="password" id="code" autocomplete="off" required></label><button type="submit">进入小屋</button></form>
+  </section>
+  <form id="pairing-form" hidden>
+    <fieldset><legend>随身伙伴</legend><div id="choices"></div><p id="empty" hidden>小屋里还没有准备好形象的灵宠。<a href="/">回小屋看看</a></p></fieldset>
+    <fieldset id="network"><legend>家庭网络</legend>
+      <label id="reuse-label" hidden><input id="reuse" type="checkbox">沿用这台挂件上次保存的 Wi-Fi</label>
+      <div id="credentials">
+        <label>2.4 GHz Wi-Fi 名称<input type="text" id="ssid" maxlength="32" autocomplete="off" required></label>
+        <label>Wi-Fi 密码<input type="password" id="password" maxlength="63" autocomplete="off"></label>
+      </div>
+      <button id="repair" type="button" hidden>只修复这台挂件的 Wi-Fi</button>
+      <details id="address-details"><summary>电脑的家庭网络地址</summary><label>局域网 IPv4 地址<input id="host" type="text" required inputmode="decimal" autocomplete="off" placeholder="例如 192.168.1.20"></label></details>
+    </fieldset>
+    <button id="write" type="submit">选择挂件并写入</button>
+    <progress id="progress" max="1" hidden></progress>
+  </form>
+  <p id="notice" role="status" aria-live="polite"></p>
+  <button id="confirm" hidden>完成小屋确认</button>
+  <details id="help"><summary>需要帮助？</summary>
+    <p>初次使用原厂挂件，请先在<a id="installer" href="https://moonlin1213.github.io/cove-pet-nest-passport/install/" target="_blank" rel="noopener noreferrer">中文安装页</a>备份并安装，完成后关闭安装页占用的串口。选宠使用电脑版 Chrome 或 Edge。</p>
+    <p>配对后可拔线。回家时让小屋继续运行，挂件连上同一个家庭 Wi-Fi 就会同步照顾和成长。</p>
+  </details>
+</main></body></html>

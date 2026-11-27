@@ -42,4 +42,5 @@ trove-classifiers==2026.9.21.13
 truststore==0.10.4
 typing-extensions==4.16.0
 typing-inspection==0.4.4
+tzdata==2025.2; platform_system == "Windows"
 uvicorn==0.54.0

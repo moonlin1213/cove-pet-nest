@@ -11,10 +11,12 @@ from .contracts import Adoption,Care,UsageEvent,RelationshipEvent,Retry,LifeEven
 from .ledger import record_usage
 from .relationships import record_relationship
 from .store import NestError
+from .passport.pairing import Pairing
 
 
 def create_app(service):
     creds=credentials(service.settings)
+    passport=Pairing(service)
     async def worker():
         while True:
             await service.tick()
@@ -23,12 +25,14 @@ def create_app(service):
     @asynccontextmanager
     async def lifespan(app):
         task=asyncio.create_task(worker())
-        yield
-        task.cancel()
+        reconnect=asyncio.create_task(passport.maintain())
         try:
-            await task
-        except asyncio.CancelledError:
-            pass
+            yield
+        finally:
+            task.cancel()
+            reconnect.cancel()
+            await asyncio.gather(task,reconnect,return_exceptions=True)
+            await asyncio.to_thread(passport.close)
 
     app=FastAPI(lifespan=lifespan,docs_url=None,redoc_url=None,openapi_url=None)
 
@@ -65,6 +69,8 @@ def create_app(service):
     def browser(request: Request):
         if not valid_session(request.cookies.get('nest_session'),creds['session_key']):
             raise HTTPException(401,'local_session_required')
+
+    app.include_router(passport.router(browser))
 
     def host(request: Request):
         if not bearer(request,creds['host_token']):
@@ -154,6 +160,10 @@ def create_app(service):
     root=Path(__file__).parent
     app.mount('/static',StaticFiles(directory=root/'web',check_dir=False),name='static')
     app.mount('/starter',StaticFiles(directory=root/'assets',check_dir=False),name='starter')
+
+    @app.get('/passport')
+    def pair_page():
+        return FileResponse(root/'web/passport.html')
 
     @app.get('/')
     def index():
