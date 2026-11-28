@@ -8,6 +8,7 @@ const url=process.env.NEST_TEST_URL;
 assert(url && new URL(url).hostname==='127.0.0.1');
 const br=await chromium.launch({headless:true,executablePath:process.env.CHROME_EXECUTABLE||undefined});
 try {
+  let firstPlayTime;
   for (const width of [1100,390]) {
     const c=await br.newContext({viewport:{width,height:850}});
     const page=await c.newPage(), errors=[];
@@ -31,6 +32,7 @@ try {
       await page.route('**/api/toys/*/play',async route=>{
         committedId=route.request().postDataJSON().request_id;
         assert.equal((await route.fetch()).status(),200);
+        firstPlayTime=Date.now();
         await route.abort('failed');
       },{times:1});
       await box.getByRole('button',{name:'给宝宝玩'}).click();
@@ -39,9 +41,18 @@ try {
       const next=page.waitForRequest(r=>r.url().endsWith('/play'));
       await box.getByRole('button',{name:'给宝宝玩'}).click();
       assert.equal((await next).postDataJSON().request_id,committedId,'lost receipt must replay the same request after reload');
-    }else await box.getByRole('button',{name:'给宝宝玩'}).click();
-    if(width===1100)await box.getByText('蒲公英玩过 1 次',{exact:true}).waitFor();
-    else await box.getByText(/蒲公英.*玩过.*次/).waitFor();
+    }else{
+      // The same fictional room carries one confirmed play across both viewports.
+      const remainingCooldown=firstPlayTime+5100-Date.now();
+      if(remainingCooldown>0)await new Promise(done=>setTimeout(done,remainingCooldown));
+      const receipt=page.waitForResponse(r=>r.url().endsWith('/play'));
+      await box.getByRole('button',{name:'给宝宝玩'}).click();
+      const response=await receipt;
+      assert.equal(response.status(),200);
+      assert.equal((await response.json()).count,2);
+    }
+    const expectedPlays=width===1100?1:2;
+    await box.getByText('蒲公英玩过 '+expectedPlays+' 次',{exact:true}).waitFor();
     await box.getByRole('button',{name:'关上'}).click();
     const toy=page.getByRole('button',{name:'移动花园铃'});
     await toy.focus();
