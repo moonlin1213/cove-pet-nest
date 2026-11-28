@@ -78,4 +78,3 @@ export function movable(el,board,item,finish,onError,canDropOnPet=false) {
     if(delta){e.preventDefault();done(item.x+delta[0],item.y+delta[1],null);}
   };
 }
-
