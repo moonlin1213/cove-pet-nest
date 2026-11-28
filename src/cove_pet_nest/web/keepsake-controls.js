@@ -10,7 +10,9 @@ export function action(text,handler) {
   el.type='button';
   el.onclick=async()=>{
     el.disabled=true;
-    try {await handler();} catch(error){$('collectionStatus').textContent=error.message;}
+    try {await handler();} catch(error){
+      if(el.isConnected && el.closest('dialog')?.open)$('collectionStatus').textContent=error.message;
+    }
     finally {el.disabled=false;}
   };
   return el;
@@ -35,7 +37,11 @@ export async function request(path,method='GET',body) {
   const response=await fetch('/api/'+path,{method,cache:'no-store',headers:{'Content-Type':'application/json'},
     body:body===undefined?undefined:JSON.stringify(body)});
   const data=await response.json();
-  if(!response.ok)throw Error(statuses[data.error||data.detail]||'操作未完成，请重新打开再试。');
+  if(!response.ok){
+    const error=new Error(statuses[data.error||data.detail]||'操作未完成，请重新打开再试。');
+    error.status=response.status;
+    throw error;
+  }
   return data;
 }
 export function position(el,x,y) {
@@ -77,4 +83,5 @@ export function movable(el,board,item,finish,onError,canDropOnPet=false) {
     const delta={ArrowLeft:[-.03,0],ArrowRight:[.03,0],ArrowUp:[0,-.03],ArrowDown:[0,.03]}[e.key];
     if(delta){e.preventDefault();done(item.x+delta[0],item.y+delta[1],null);}
   };
+  return ()=>Boolean(start);
 }
