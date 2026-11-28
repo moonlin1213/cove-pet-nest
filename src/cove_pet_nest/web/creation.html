@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>后台创作 · 灵宠屋</title><link rel="stylesheet" href="/static/nest.css"><link rel="stylesheet" href="/static/creation.css"><link rel="stylesheet" href="/static/creation-entry.css">
+<script type="module" src="/static/creation.js"></script><script type="module" src="/static/creation-entry.js"></script></head>
+<body><main><nav><a href="/">回小屋</a>　<a href="/passport">挂件配对</a></nav>
+<h1>后台创作</h1><p>小屋运行时，宝宝可以从最近的相处里留一张纸条，或把一段记忆变成玩具。</p>
+<aside class="creation-entry"><a href="/creation/guide">阅读工程 agent 配置指南</a><button type="button" data-copy-creation-guide>复制给工程 agent 的指引</button><span role="status" aria-live="polite"></span></aside>
+<p id="notice" role="status" aria-live="polite"></p><p id="loginHint" hidden>请先<a href="/">回到小屋登录</a>，再打开后台创作设置。</p>
+<form id="setup" hidden>
+<section><h2>文字服务 <small id="textState"></small></h2><p>文字模型会收到这家人近期的互动摘要或照顾片段，用来写纸条和构思玩具。</p>
+<details><summary>配置文字服务</summary><label>完整的聊天补全地址<input id="textEndpoint" type="url" placeholder="https://…/v1/chat/completions" autocomplete="off"></label>
+<label>模型名<input id="textModel" maxlength="256"></label><label>服务密钥<input id="textKey" type="password" autocomplete="new-password"></label>
+<label><input id="textReset" type="checkbox">清除本机覆盖，恢复使用启动环境设置</label></details></section>
+<section><h2>图片服务 <small id="imageState"></small></h2><p>玩具图只发送外观简述。已有图片服务会自动沿用。</p>
+<details><summary>配置玩具图片服务</summary><label>完整的生图地址<input id="imageEndpoint" type="url" placeholder="https://…/v1/images/generations" autocomplete="off"></label>
+<label>模型名<input id="imageModel" maxlength="256"></label><label>服务密钥<input id="imageKey" type="password" autocomplete="new-password"></label>
+<label><input id="imageReset" type="checkbox">清除本机覆盖，恢复使用启动环境设置</label></details></section>
+<section><h2>互动来源</h2><p id="sources"></p><p>上报聊天摘要或共同生活事件后，小屋就能用它们找灵感。只接 MCP 的小屋也能凭真实照顾记录生成纸条。</p></section>
+<section><h2>允许后台创作</h2><label><input type="checkbox" id="notesEnabled">宠物纸条</label><label><input type="checkbox" id="toysEnabled">惊喜玩具</label>
+<label>每日文字请求上限<input id="dailyTextLimit" type="number" min="0" max="100" step="1" required></label>
+<p>保存后允许小屋在后台调用选定的服务，可能产生费用。玩具图与小屋的其他图片共用每日名额。取消勾选并保存可停止新的生成请求。</p><button class="primary" id="save">保存设置</button></section>
+</form>
+<section id="checkPanel" hidden><h2>验证与任务</h2><p id="activity"></p><p>先用虚构片段检查本机配置、持久化和去重。离线诊断免费，测试数据单独存放。</p><button id="diagnose">运行离线诊断</button> <button id="trial">试一次文字生成</button> <button id="refresh">刷新状态</button>
+<ul id="jobs"></ul></section>
+</main></body></html>

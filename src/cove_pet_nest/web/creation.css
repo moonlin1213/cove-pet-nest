@@ -1,0 +1,14 @@
+main{max-width:740px}
+h1{font-size:2rem;letter-spacing:.08em;margin:1em 0 .4em}
+h2{display:flex;align-items:baseline;gap:1em}
+a,summary{color:#604b36}
+small{font-size:.85rem;font-weight:normal;letter-spacing:0;color:#735e46}
+form section,#checkPanel{border-top:1px solid #ccbaa0;margin:1.3em 0;padding-top:.5em}
+label input:not([type=checkbox]){max-width:34rem;background:transparent;border:0;border-radius:0;border-bottom:1px solid #99866e}
+label input[type=checkbox]{width:auto;display:inline-block;margin:0 .5em 0 0}
+#dailyTextLimit{max-width:5rem}
+summary{cursor:pointer}
+#notice{overflow-wrap:anywhere;min-height:1.4em;font-weight:600}
+#jobs li{display:flex;align-items:baseline;gap:.8em;flex-wrap:wrap}
+button{border:0;border-radius:0;background:transparent;text-decoration:underline;text-underline-offset:.18em;padding:.5em .2em}
+button.primary{padding:.55em 1em}

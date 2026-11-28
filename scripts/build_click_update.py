@@ -25,6 +25,9 @@ def build(wheel,pip,tzdata,destination,recovery_wheel=None):
     with zipfile.ZipFile(destination,'w',compression=zipfile.ZIP_DEFLATED) as out:
         for name in LAUNCHERS:
             out.write(ROOT/'update'/name,'Cove-Pet-Nest-Update/'+name)
+        with zipfile.ZipFile(wheel) as package:
+            guide = package.read('cove_pet_nest/web/creation-guide.md')
+        out.writestr('Cove-Pet-Nest-Update/后台创作-工程agent指南.md', guide)
         checks=[]
         for path,_ in wheels:
             out.write(path,'Cove-Pet-Nest-Update/'+path.name,compress_type=zipfile.ZIP_STORED)
@@ -33,6 +36,7 @@ def build(wheel,pip,tzdata,destination,recovery_wheel=None):
         out.writestr('Cove-Pet-Nest-Update/使用说明.txt',
                      '先完整解压，在安装了原小屋的电脑上双击对应的 Update 启动器。\n'
                      '选择原项目文件夹，再选择含 pets.sqlite3 和 credentials.json 的原小屋数据文件夹。\n'
+                     '新玩法配置可打开同目录的 后台创作-工程agent指南.md，或在小屋点「后台创作设置」。\n'
                      '保持启动窗口打开即可同步，关闭启动窗口会停止小屋。日常也可以用原来的方式启动。\n'
                      'Linux 若显示脚本内容，可在文件属性中允许作为程序执行，然后选择运行。\n')
 

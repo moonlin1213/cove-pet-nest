@@ -12,6 +12,7 @@ from .ledger import record_usage
 from .relationships import record_relationship
 from .store import NestError
 from .passport.pairing import Pairing
+from .creation_routes import router as creation_router
 
 
 def create_app(service):
@@ -71,6 +72,7 @@ def create_app(service):
             raise HTTPException(401,'local_session_required')
 
     app.include_router(passport.router(browser))
+    app.include_router(creation_router(service,browser))
 
     def host(request: Request):
         if not bearer(request,creds['host_token']):

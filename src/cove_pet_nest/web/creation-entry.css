@@ -1,0 +1,5 @@
+.creation-entry{display:flex;align-items:baseline;flex-wrap:wrap;gap:.5rem 1.2rem;margin:1.25rem 0;font-size:.9rem}
+.creation-entry a,.creation-entry button{color:#654f38;font:inherit;cursor:pointer}
+.creation-entry button{background:transparent;border:0;border-radius:0;padding:.3em 0;text-decoration:underline;text-underline-offset:.16em}
+.creation-entry [role=status]{flex-basis:100%;overflow-wrap:anywhere}
+.creation-entry [role=status]:empty{display:none}
