@@ -17,7 +17,7 @@
 ## 让用户核对四项
 
 - **文字服务**构思玩具和纸条。请用户选择兼容 chat completions 的完整 POST 地址和模型名，自行在本机设置页填写服务密钥。已有的 PET_NEST_TEXT_ENDPOINT、PET_NEST_TEXT_MODEL、PET_NEST_TEXT_KEY 可沿用。远程服务使用 HTTPS。本机服务可以使用 HTTP，地址填 localhost、127.0.0.1 或 [::1]。文字和玩具图片都遵循这项设置。
-- **图片服务**只在做玩具图时用到。优先沿用原来的 PET_NEST_IMAGE_ENDPOINT、PET_NEST_IMAGE_MODEL、PET_NEST_IMAGE_KEY。新增设置里的图片覆盖只影响后台玩具图。玩具与现有图片任务共用每日额度。
+- **图片服务**只在做玩具图时用到。优先沿用原来的 PET_NEST_IMAGE_ENDPOINT、PET_NEST_IMAGE_MODEL、PET_NEST_IMAGE_KEY。新增设置里的图片覆盖只影响后台玩具图。玩具图与成长外观、生活照合计每天最多提交三次。每次提交都占一个名额，手动重试也会再占一次。
 - **互动来源**由各家庭的宿主接入。宿主在互动实际完成后，通过已有的宿主认证向 POST /api/integration/relationship 提交稳定的 event_id、真实 occurred_at、简短 summary 和 signals，例如 reading。再次提交相同事件使用原 ID 和原内容。共同生活事件可走 POST /api/integration/life-events，小屋网页和 MCP 的成功照顾会留下照顾回执。只接 MCP 时可以使用照顾素材写纸条。惊喜玩具还要有宿主上报的互动摘要或共同生活事件。请向用户说明哪些摘要会交给其文字服务，玩具图只需发送筛选出的外观描述。
 - **允许后台创作**由用户在本机勾选「宠物纸条」或「惊喜玩具」，调整每日文字请求限额并保存。原服务无需为新增功能重配。配置保存在当前数据目录。macOS 和 Linux 的本机配置文件仅对当前用户开放读写。Windows 会先用 DPAPI 将整个服务配置加密，绑定到当前用户。换电脑或 Windows 账户时，请在新环境里重新填写。请求可能计费；日期切换、超时或人工重试会影响实际费用。用户可以随时关闭新任务。
 

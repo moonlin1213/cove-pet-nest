@@ -42,7 +42,7 @@ Cove 灵宠屋把这些小事放进一间温暖的小屋。它是一个可以接
 
 它以稳定的个体种子决定基础身份和色泽，再结合相处信号定制标记与性格。首次孵化描述会冻结，重试生成不会重新抽取另一个身份。没有关系信号时，项目会明确使用随机底色。
 
-**这些信号由接入者的宿主应用提供。** 核心不会自行读取私人聊天，也不会自动调用另一个模型来猜测感情。关系摘要留在本机，不发给图片服务。
+**这些信号由接入者的宿主应用提供。** 核心不会自行读取私人聊天，也不会自动调用另一个模型来猜测感情。关系摘要保存在本机。启用后台创作后，选中的素材会交给你配置的文字服务。
 
 ### 4. 养大的样子，与一起生活的片刻，都可以留住
 
@@ -86,7 +86,11 @@ Cove 灵宠屋把这些小事放进一间温暖的小屋。它是一个可以接
 
 从 v0.1.0 升级时，先关掉原小屋及连接它的 AI 客户端。更新器会在原数据文件夹旁创建仅供自己保管的备份，校验宠物库和原图，并存一份旧版安装包。保留这个备份可以按[恢复说明](docs/backup.md)取回升级前的宠物。
 
-## 让小屋在后台创作
+## 0.4.0 的玩具、纸条和栖息地
+
+点小屋里的藤篮打开玩具箱。每件惊喜玩具都有来历和四种形态，可以摆在房间里，也可以拿给不同宠物玩。点纸心可以读宠物留下的纸条，收藏喜欢的那一张。在名册里打开蛇或蜥蜴的专属栖息地，可以为每只爬宠单独布置背景、装饰和玩具。
+
+### 让小屋在后台创作
 
 从电脑端 0.3.2 升级时，用图形更新器选回原小屋环境和存档。在小屋首页或挂件配对页点 **后台创作设置**，可让工程 agent 引导你复用图片设置、接通自己的文字服务和互动来源。先运行免费的离线诊断，再按意愿开启纸条或玩具。图形更新包内也附有同一份《后台创作-工程agent指南.md》。[工程 agent 配置指南](src/cove_pet_nest/web/creation-guide.md)
 
@@ -174,7 +178,7 @@ cove-pet-nest serve --port 8767
 | `GET/POST /api/integration/life-events` | 读取或记录有界生活事件 |
 | `POST /api/integration/photos` | 为已有事件明确请求生活照 |
 
-凭据由后端持有，不要放进模型提示、网页 JavaScript 或公开配置。关系信号包含 `affection`、`reading`、`watching`、`listening`、`exploration` 五个有界维度；可选的短摘要只保存在本机，不在普通状态或 MCP 中返回。
+凭据由后端持有，不要放进模型提示、网页 JavaScript 或公开配置。关系信号包含 `affection`、`reading`、`watching`、`listening`、`exploration` 五个有界维度；可选的短摘要存放在本机，普通状态与 MCP 不返回摘要。启用后台创作后，小屋可能将选中的摘要发送给你配置的文字服务。
 
 完整契约、JSON 示例和去重规则见 **[接入教程](docs/integration.md)**；可运行的用量上报示例见 [examples/host_events.py](examples/host_events.py)。
 
@@ -196,13 +200,13 @@ cove-pet-nest serve --port 8767
 pip install -e '.[dev]'
 pytest -q
 python -m build --no-isolation
-python scripts/check_release.py --artifact dist/cove_pet_nest-0.2.0-py3-none-any.whl
-python scripts/check_release.py --artifact dist/cove_pet_nest-0.2.0.tar.gz
+python scripts/check_release.py --artifact dist/cove_pet_nest-0.4.0-py3-none-any.whl
+python scripts/check_release.py --artifact dist/cove_pet_nest-0.4.0.tar.gz
 ```
 
 v0.2.0 在 Python 3.13 / macOS ARM64 验证，45 项测试覆盖照顾、换粮、持续成长、历史外观、生活照去重、参考图请求、断线恢复、HTTP 身份、真实 stdio MCP 和备份恢复。实际 v0.1.0 安装生成的隔离数据升级验证通过。Chrome 的 1280×800 与 390×844 相册翻页、放大、照片入口和基本小屋流程均有网页检查；详细发布验证见 [验收记录](docs/privacy-review.md)。尚未完成真实手机、Windows / Linux 或第三方 AI 应用验收。
 
-用户数据、个性化图片、凭据、日志和恢复备份不得加入源码仓库或发行包。项目附带的示例均为虚构资料，网页截图来自隔离测试实例；四项通用 starter 素材的来源范围与 SHA-256 记录在 [素材清单](src/cove_pet_nest/assets/manifest.json)。
+用户数据、个性化图片、凭据、日志和恢复备份不得加入源码仓库或发行包。项目附带的示例均为虚构资料，网页截图来自隔离测试实例；小屋、宠物、藤篮、纸心和栖息地等通用素材的来源范围与 SHA-256 记录在 [素材清单](src/cove_pet_nest/assets/manifest.json)。
 
 更多说明：
 
