@@ -1,0 +1,27 @@
+.scene-basket,.room-toy,.habitat-decor{position:absolute;transform:translate(-50%,-50%);border:0;border-radius:0;padding:0;background:transparent;color:#4c3828}
+.scene-basket:hover,.room-toy:hover,.habitat-decor:hover{background:transparent}
+.scene-basket{left:83%;top:77%;width:17%;isolation:isolate}
+.scene-basket>img:first-child{position:relative;display:block;width:100%;z-index:1}
+.scene-basket>span{position:relative;z-index:2;text-shadow:0 1px 3px #fff8e6;background:#fff3d5bd;padding:.08rem .35rem}
+.basket-preview{width:35%;position:absolute;left:calc(10% + var(--i)*24%);top:calc(3% - var(--i)*4%);transform:rotate(calc(-10deg + var(--i)*9deg))}
+.room-toy{width:13%;max-width:100px;touch-action:none}.room-toy img,.habitat-decor img{display:block;width:100%;height:auto;pointer-events:none}
+.collection-dialog{width:min(600px,92vw);max-height:88vh;overflow:auto;border-radius:3px;background:#fbf5e9;padding:20px 24px}
+.collection-dialog header{display:flex;align-items:center;justify-content:space-between;padding:0 0 .6rem;border-bottom:1px solid #c9bb9d}
+.collection-dialog header h2{margin:0;font-weight:normal}.collection-dialog button{border:0;border-radius:0;background:transparent;padding:7px 5px;color:#67503b}
+.collection-dialog button:hover,.collection-dialog button:focus-visible{text-decoration:underline;background:transparent}
+.collection-dialog small{display:block;color:#75654f}.collection-dialog h3{font-size:1.12rem;margin:.4em 0;font-weight:normal}
+.collection-dialog p{overflow-wrap:anywhere}
+.toy-entry{display:grid;grid-template-columns:minmax(74px,26%) 1fr;align-items:center;gap:16px;padding:12px 0;border-bottom:1px solid #d8ccb6}
+.toy-entry>img{width:100%;max-height:180px;object-fit:contain}.toy-entry p{margin:4px 0}
+.keepsake-actions{display:flex;flex-wrap:wrap;align-items:center;gap:.3rem .8rem}
+.keepsake-actions label{display:flex;align-items:center;gap:.45rem;margin:6px 0}
+.keepsake-actions select{width:auto;max-width:150px;background:none;border:0;border-bottom:1px solid #a89170;border-radius:0;padding:4px;margin:0}
+.keepsake-actions input[type=range]{width:100px;padding:0}
+.nest-note{margin:.8rem 0;padding:.6rem 0;border-bottom:1px solid #d8ccb6}
+.nest-note p{margin:.4rem 0}.nest-note img{width:45px;display:block}
+.habitat-board{background:center/cover url('/starter/habitats/interior-light.webp');position:relative;overflow:hidden;width:100%;aspect-ratio:3/2;margin:12px 0}
+.habitat-board.moss-forest{background-image:url('/starter/habitats/jungle-light.webp');background-position:center 64%}
+.habitat-board .habitat-decor{touch-action:none;padding:0}.habitat-decor[aria-pressed=true]{filter:drop-shadow(0 0 4px #ffe2a2)}
+.habitat-pet{width:24%;aspect-ratio:1;position:absolute;left:21%;top:43%;background-size:300% 200%;pointer-events:none}
+#collectionStatus{min-height:1em;margin:.4rem 0;color:#68593e}.toolbar-actions{flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:450px){.collection-dialog{padding:14px}.toy-entry{gap:8px}.toolbar{align-items:baseline}.toolbar-actions{gap:3px 10px}}

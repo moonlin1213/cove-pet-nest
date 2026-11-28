@@ -11,6 +11,7 @@ from .contracts import Adoption,Care,UsageEvent,RelationshipEvent,Retry,LifeEven
 from .ledger import record_usage
 from .relationships import record_relationship
 from .store import NestError
+from .keepsake_routes import collection_router
 from .passport.pairing import Pairing
 from .creation_routes import router as creation_router
 
@@ -71,6 +72,7 @@ def create_app(service):
         if not valid_session(request.cookies.get('nest_session'),creds['session_key']):
             raise HTTPException(401,'local_session_required')
 
+    app.include_router(collection_router(service.store, browser))
     app.include_router(passport.router(browser))
     app.include_router(creation_router(service,browser))
 

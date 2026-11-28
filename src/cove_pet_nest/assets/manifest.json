@@ -22,5 +22,47 @@
     "sha256": "7df57e98c547889c9fba6ddcab0bb073775ee3e3ce53ee1b8552e0a4ddd2ba2f",
     "source": "Cove generic shared starter artwork",
     "license": "Shared with this project under MIT by the directing owner; excludes personalized runtime assets"
+  },
+  {
+    "file": "toy-basket-light.webp",
+    "sha256": "728e7d78f9aedae41a0f8b0189b4b8e86776f5d68f620d42f8b0be2c8859d8e3",
+    "source": "Cove generic shared room artwork",
+    "license": "Shared with this project under MIT by the directing owner; excludes personalized runtime assets"
+  },
+  {
+    "file": "doodle-heart-light.webp",
+    "sha256": "ccf783d30b10a51b764c3afb529589a84095cfba5e9e60935852951db59d0f4c",
+    "source": "Cove generic shared room artwork",
+    "license": "Shared with this project under MIT by the directing owner; excludes personalized runtime assets"
+  },
+  {
+    "file": "habitats/interior-light.webp",
+    "sha256": "13a376daf67aeac562d82726abc995a03bddc86422f7012d7b1d3fc825e8b3cb",
+    "source": "Cove generic shared room artwork",
+    "license": "Shared with this project under MIT by the directing owner; excludes personalized runtime assets"
+  },
+  {
+    "file": "habitats/jungle-light.webp",
+    "sha256": "0c173da563c4fb25f12ff7130ee7c32902e3bc50871fb63d7a95f3f4a1928abf",
+    "source": "Cove generic shared room artwork",
+    "license": "Shared with this project under MIT by the directing owner; excludes personalized runtime assets"
+  },
+  {
+    "file": "habitats/hide-light.webp",
+    "sha256": "be9f0b5aaceff6f7dc5bd0ecb93570a9e40a1ffb548932593eef9d443d84f46a",
+    "source": "Cove generic shared room artwork",
+    "license": "Shared with this project under MIT by the directing owner; excludes personalized runtime assets"
+  },
+  {
+    "file": "habitats/stone-light.webp",
+    "sha256": "9791c2b93eadb011699c132329ee63d77b08184ad2a3feb48d937510e3bff702",
+    "source": "Cove generic shared room artwork",
+    "license": "Shared with this project under MIT by the directing owner; excludes personalized runtime assets"
+  },
+  {
+    "file": "habitats/fern-light.webp",
+    "sha256": "e3e5b08cd1aaf0d737766cd1fa4ab3773d9171da87d0b79df68b14c012e1a9b6",
+    "source": "Cove generic shared room artwork",
+    "license": "Shared with this project under MIT by the directing owner; excludes personalized runtime assets"
   }
 ]

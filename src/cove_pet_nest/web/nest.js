@@ -1,3 +1,4 @@
+import {mountKeepsakes} from './keepsakes.js';
 import {mountAlbum} from './album.js';
 const $=id=>document.getElementById(id);
 let state=null, selected=null, offset=0;
@@ -5,6 +6,7 @@ const species={cat:'小猫',dog:'小狗',egg:'神秘灵宠蛋',parrot:'鹦鹉',s
 const statuses={fed:'吃饱啦',played:'一起玩了一会儿',comforted:'收到了摸摸',full:'已经吃饱了',no_food:'粮仓暂时没有粮食',pending:'宝宝的模样还在准备'};
 function tell(text){$('message').textContent=text;}
 const album=mountAlbum({api,getState:()=>state,tell});
+const keepsakes=mountKeepsakes({tell});
 async function api(path,body,headers={}){
   const response=await fetch(path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json',...headers},body:body===undefined?undefined:JSON.stringify(body)});
   const value=await response.json();
@@ -15,7 +17,7 @@ async function api(path,body,headers={}){
   }
   return value;
 }
-async function load(){state=await api(`/api/nest?offset=${offset}&limit=100`);$('login').hidden=true;$('room').hidden=false;render();}
+async function load(){state=await api(`/api/nest?offset=${offset}&limit=100`);$('login').hidden=true;$('room').hidden=false;render();await keepsakes.refresh();}
 function button(text,handler){const b=document.createElement('button');b.textContent=text;b.onclick=handler;return b;}
 function render(){
   $('subtitle').textContent=`和${state.assistant_name}一起生活，慢慢长大。`;
@@ -24,7 +26,7 @@ function render(){
   state.pets.forEach((pet,i)=>{
     $('roster').append(button(`${pet.name} · ${species[pet.kind]}`,()=>openCare(pet)));
     if(i>=12)return;
-    const b=button('',()=>openCare(pet));b.className='pet';b.setAttribute('aria-label',`照顾${pet.name}`);
+    const b=button('',()=>openCare(pet));b.className='pet';b.dataset.petId=pet.id;b.setAttribute('aria-label',`照顾${pet.name}`);
     b.style.left=`${22+(i%4)*19}%`;b.style.top=`${51+Math.floor(i/4)*12}%`;
     if(pet.kind==='egg'&&pet.stage===0){b.style.left=`${82-(i%3)*5}%`;b.style.top=`${32+Math.floor(i/3)*2}%`;}
     const sprite=document.createElement('span');sprite.className='sprite';
@@ -42,7 +44,10 @@ function render(){
   $('previous').hidden=offset===0;$('next').hidden=offset+100>=state.total;
 }
 function openCare(pet){
-  selected=pet.id;$('careTitle').textContent=pet.name;
+  selected=pet.id;
+  $('habitatOpen').hidden=!['snake','lizard'].includes(pet.kind);
+  $('habitatOpen').onclick=()=>{$('careDialog').close();keepsakes.openHabitat(pet);};
+  $('careTitle').textContent=pet.name;
   $('careDetails').textContent=`${species[pet.kind]} · 第 ${pet.stage} 阶段 · 饱腹 ${Math.round(pet.satiety)} · 成长 ${Math.round(pet.growth)}`;
   if(pet.growth_progress){const g=pet.growth_progress;$('careDetails').textContent+=`。下一阶段：成长 ${g.required_growth}，相处 ${g.elapsed_days}/${g.required_days} 天。`;}
   $('careActions').hidden=pet.status==='pending';$('jobInfo').replaceChildren();

@@ -26,6 +26,9 @@ def create_backup(store,destination:Path):
             refs.update(r[0] for r in db.execute('SELECT asset_ref FROM image_jobs WHERE asset_ref IS NOT NULL'))
         if db.execute("SELECT 1 FROM sqlite_master WHERE name='pet_stages'").fetchone():
             refs.update(r[0] for r in db.execute('SELECT asset_ref FROM pet_stages WHERE asset_ref IS NOT NULL'))
+        if db.execute("SELECT 1 FROM sqlite_master WHERE name='keepsake_toys'").fetchone():
+            for row in db.execute('SELECT forms FROM keepsake_toys'):
+                refs.update(json.loads(row[0]))
         if db.execute("SELECT 1 FROM sqlite_master WHERE name='life_events'").fetchone():
             for row in db.execute('SELECT participants FROM life_events'):
                 refs.update(p['asset_ref'] for p in json.loads(row[0]) if p.get('asset_ref'))
