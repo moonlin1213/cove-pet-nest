@@ -1,5 +1,6 @@
 """Only the signed-in local household can opt into creation."""
 import os
+import pytest
 
 from test_http import client_for, login
 
@@ -150,7 +151,6 @@ def test_windows_secret_storage_writes_only_account_protected_keys(tmp_path, mon
 
 
 def test_real_windows_dpapi_roundtrip():
-    import pytest
     if os.name!='nt':
         pytest.skip('native Windows DPAPI')
     from cove_pet_nest.windows_secrets import protect_key,unprotect_key
@@ -218,3 +218,28 @@ def test_source_history_and_available_material_are_reported_separately(tmp_path)
             db.execute("INSERT INTO creation_jobs(id,kind,source_id,material,status) VALUES(?,?,?,'{}','success')",
                        (kind+source,kind,'relationship:'+source))
     assert public_settings(service)['feature_status']==waiting
+
+
+@pytest.mark.parametrize('damaged', [b'{"text":"\xe7\x81', '{"notes_enabled":true}'.encode('utf-16')], ids=['truncated-utf8', 'utf16'])
+def test_unreadable_settings_do_not_block_original_image_jobs(tmp_path, damaged):
+    import asyncio
+    from cove_pet_nest.config import Settings
+    from cove_pet_nest.service import build_service
+    from test_hatch import atlas
+
+    service=build_service(Settings(tmp_path))
+    class FixtureImage:
+        async def generate(self, brief, reference=None):
+            return atlas()
+    service.jobs.transport=FixtureImage()
+    service.adopt('parrot','虚构鹦鹉','fixture-parrot',actor='user')
+    path=tmp_path/'creation-settings.json'
+    path.write_bytes(damaged)
+    client,creds=client_for(tmp_path)
+    login(client,creds)
+    assert asyncio.run(service.tick())['status']=='success'
+    assert service.state()['pets'][0]['status']=='ready'
+    for response in (client.get('/api/creation/settings'),
+                     client.post('/api/creation/settings', json={'notes_enabled':False})):
+        assert response.status_code==409 and response.json()['error']=='invalid_creation_settings'
+    assert path.read_bytes()==damaged

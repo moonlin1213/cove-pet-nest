@@ -69,13 +69,12 @@ class SettingsPatch(StrictModel):
 def _read(data_dir):
     try:
         values = (Path(data_dir)/CONFIG_NAME).read_text(encoding='utf-8')
-    except FileNotFoundError:
-        return {}
-    try:
         document = json.loads(values)
         if not isinstance(document, dict):
             raise ValueError()
         return document
+    except FileNotFoundError:
+        return {}
     except (TypeError, ValueError):
         raise NestError('invalid_creation_settings', 409) from None
 
