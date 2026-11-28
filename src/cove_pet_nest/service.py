@@ -3,12 +3,15 @@ from .images.service import ImageJobService
 from .images.transport import configured_transport
 from .growth import prepare_next_stage,growth_target
 from .album import AlbumService
+from .creation_worker import CreationWorker
 
 
 class NestService:
     def __init__(self,settings,store,jobs):
         self.settings,self.store,self.jobs=settings,store,jobs
         self.album=AlbumService(store,jobs)
+        self.creation=CreationWorker(store)
+        self.jobs.creation=self.creation
 
     def state(self,*,offset=0,limit=100):
         state=self.store.state(offset=offset,limit=limit)
@@ -44,6 +47,7 @@ class NestService:
             brief=prepare_next_stage(self.store,pet_id)
             if brief:
                 self.jobs.enqueue(pet_id,pet_id+'-stage-'+str(brief['stage']),brief)
+        await self.creation.tick()
         return await self.jobs.run_once()
 
 

@@ -27,7 +27,12 @@ class ImageTransport:
                 raise NestError('invalid_reference_images')
         photo=brief.get('purpose')=='photo'
         style='Soft plush picture-book artwork, muted natural colors, gentle light. No text, logos or human body parts. '
-        if photo:
+        toy=brief.get('purpose')=='toy'
+        if toy:
+            prompt=(style+'One square transparent 2x2 sprite sheet. Show the same handmade toy in four distinct '
+                    'playful forms, one complete centered object per equally sized cell with transparent margins. '
+                    'Render this appearance: '+brief['appearance'])
+        elif photo:
             events={'care_feed':'a pet calmly enjoying its food','care_play':'a pet playing peacefully','care_comfort':'a pet resting contentedly after care',
                 'reading':'pets beside an open picture book','watching':'pets quietly watching a blank story screen','listening':'pets beside a small music box',
                 'exploration':'pets curiously exploring their room','companionship':'pets quietly keeping one another company'}
@@ -45,7 +50,7 @@ class ImageTransport:
                 'Fully visible body, no checkerboard, no external shadow. '
                 'Preserve the referenced face, anatomy, eye colors and ALL existing features in every pose. '
                 'Add the frozen new body feature visibly without replacing old details. Cumulative features: '+features)
-        fields={'model':self.model,'prompt':prompt,'size':'1536x1024','background':'opaque' if photo else 'transparent','n':'1'}
+        fields={'model':self.model,'prompt':prompt,'size':'1024x1024' if toy else '1536x1024','background':'opaque' if photo else 'transparent','n':'1'}
         url=self.edit_endpoint if reference is not None else self.endpoint
         if reference is None:
             request={'json':{**fields,'n':1}}

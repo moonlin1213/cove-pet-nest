@@ -13,6 +13,7 @@ from ..history import ensure_history,record_stage
 class ImageJobService:
     def __init__(self,store,assets_root: Path,transport):
         self.store,self.assets_root,self.transport=store,Path(assets_root),transport
+        self.creation=None
         self.assets_root.mkdir(parents=True,exist_ok=True,mode=0o700)
         with store.write() as db:
             db.execute('''CREATE TABLE IF NOT EXISTS image_jobs(id TEXT PRIMARY KEY,pet_id TEXT,stage INTEGER,
@@ -105,30 +106,40 @@ class ImageJobService:
         with self.store.write() as db:
             now=self.store.now(); day=self.store.day(now)
             db.execute("UPDATE image_jobs SET status='unknown',error='interrupted_after_submission' WHERE status='submitted' AND lease_until<?",(now,))
-            if self.transport is None:
-                return {'status':'needs_image_configuration'}
             count=db.execute("SELECT COUNT(*) FROM image_jobs WHERE day=? AND status IN ('success','submitted')",(day,)).fetchone()[0]
             if count>=3:
                 return {'status':'daily_limit'}
-            candidates=db.execute("SELECT * FROM image_jobs WHERE status='reserved' ORDER BY CASE purpose WHEN 'stage' THEN 0 ELSE 1 END,rowid").fetchall()
-            row=next((r for r in candidates if not json.loads(r['brief']).get('reference_required') or getattr(self.transport,'can_reference',True)),None)
-            if not row:
+            candidates=db.execute("SELECT * FROM image_jobs WHERE status='reserved' ORDER BY CASE purpose WHEN 'stage' THEN 0 WHEN 'photo' THEN 1 ELSE 2 END,rowid").fetchall()
+            for row in candidates:
+                if row['purpose']=='toy':
+                    transport=self.creation.toy_image_client() if self.creation else None
+                else:
+                    transport=self.transport
+                if transport and (not json.loads(row['brief']).get('reference_required') or getattr(transport,'can_reference',True)):
+                    break
+            else:
+                if self.transport is None:
+                    return {'status':'needs_image_configuration'}
                 return {'status':'needs_image_edit_configuration' if candidates else 'idle'}
             attempt=row['attempt']+1
             db.execute("UPDATE image_jobs SET status='submitted',attempt=?,lease_until=?,day=? WHERE id=?",(attempt,now+180,day,row['id']))
         try:
             brief=json.loads(row['brief'])
-            raw=await self.transport.generate(brief,self.references(brief))
-            if row['purpose']=='photo':
+            raw=await transport.generate(brief,self.references(brief))
+            if row['purpose']=='toy':
+                from ..toy_art import split_forms
+                forms=[self.save_asset(form) for form in split_forms(raw)]
+                ref=forms[0]
+            else:
                 from .processing import prepare_photo
-                webp=prepare_photo(raw)
-            else:webp=prepare_asset(raw)
-            ref=self.save_asset(webp)
+                ref=self.save_asset(prepare_photo(raw) if row['purpose']=='photo' else prepare_asset(raw))
             with self.store.write() as db:
                 active=db.execute('SELECT status,attempt FROM image_jobs WHERE id=?',(row['id'],)).fetchone()
                 if active['status']!='submitted' or active['attempt']!=attempt:
                     return {'status':'stale_result'}
-                if row['purpose']=='stage':
+                if row['purpose']=='toy':
+                    self.creation.complete_toy(db,row['id'],forms)
+                elif row['purpose']=='stage':
                     pet=db.execute('SELECT * FROM pets WHERE id=?',(row['pet_id'],)).fetchone()
                     if 'base_stage' in brief and (pet['stage']!=brief['base_stage'] or pet['asset_ref']!=brief.get('base_asset_ref')):
                         db.execute("UPDATE image_jobs SET status='superseded',error='appearance_changed' WHERE id=?",(row['id'],))
