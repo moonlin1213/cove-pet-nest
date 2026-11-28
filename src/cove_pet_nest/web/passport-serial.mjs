@@ -105,7 +105,7 @@ def _pp_slot():
 def _pp_probe():
  if 'passport-public-v1' not in os.listdir('/'):return {'public':False}
  with open('/passport-public-v1') as f:version=f.read().strip()
- if version!='0.2.0':return {'public':False}
+ if version not in ('0.2.0','0.2.1','0.3.0','0.3.1'):return {'public':False}
  active=globals().get('session')
  if active:
   active.book.advance(time.ticks_ms())

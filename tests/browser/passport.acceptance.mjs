@@ -15,7 +15,8 @@ const py=process.env.NEST_FIXTURE_PYTHON||'python3', repo=process.cwd();
 const site=process.env.PASSPORT_INSTALL_DIR||resolve('../cove-pet-nest-passport/docs/install');
 const tmp=await mkdtemp(join(tmpdir(),'passport-browser-')), board=join(tmp,'board');
 await mkdir(board);await mkdir(join(board,'nest'));await mkdir(join(board,'portrait'));
-await writeFile(join(board,'passport-public-v1'),'0.2.0');
+const firmware=JSON.parse(await readFile(join(site,'image.json'),'utf8'));
+await writeFile(join(board,'passport-public-v1'),firmware.version);
 const env={...process.env,PET_NEST_DATA_DIR:join(tmp,'room'),PYTHONPATH:join(repo,'src'),PYTHONDONTWRITEBYTECODE:'1'};
 const serverSource=`
 import asyncio,json,socket,sys,uvicorn

@@ -15,7 +15,7 @@ def build(wheel,pip,tzdata,destination,recovery_wheel=None):
         raise ValueError('Download the official v0.1.0 wheel and pass --recovery-wheel.')
     if hashlib.sha256(old.read_bytes()).hexdigest()!='342eade7d1ce849c402dc81592182d7ad14e4d61342392311a16fbe0f4fa66ad':
         raise ValueError('Missing the verified v0.1.0 recovery wheel')
-    wheels=((old,r'cove_pet_nest-0\.1\.0-py3-none-any\.whl'),(wheel,r'cove_pet_nest-0\.3\.1-py3-none-any\.whl'),
+    wheels=((old,r'cove_pet_nest-0\.1\.0-py3-none-any\.whl'),(wheel,r'cove_pet_nest-0\.3\.2-py3-none-any\.whl'),
             (pip,r'pip-[0-9.]+-py3-none-any\.whl'),
             (tzdata,r'tzdata-[0-9.]+-py2\.py3-none-any\.whl'))
     for path,pattern in wheels:

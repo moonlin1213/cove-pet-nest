@@ -21,7 +21,7 @@ def test_prefers_existing_project_room_without_creating_an_empty_one(tmp_path):
 
 def test_updater_refuses_wrong_artifact(tmp_path):
     import pytest
-    wheel=tmp_path/'cove_pet_nest-0.3.1-py3-none-any.whl'
+    wheel=tmp_path/f'cove_pet_nest-{updater().VERSION}-py3-none-any.whl'
     wheel.write_bytes(b'changed download')
     (tmp_path/'SHA256.txt').write_text('0'*64+'  '+wheel.name+'\n')
     with pytest.raises(ValueError):updater().verified_wheel(tmp_path)

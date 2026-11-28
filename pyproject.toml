@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cove-pet-nest"
-version = "0.3.1"
+version = "0.3.2"
 description = "A local pet room for people and their AI companions"
 readme = "README.md"
 requires-python = ">=3.11"
