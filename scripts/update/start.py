@@ -17,7 +17,7 @@ from urllib.request import ProxyHandler, build_opener
 import webbrowser
 
 ROOT = Path(__file__).resolve().parent
-VERSION = '0.3.2'
+VERSION = '0.4.0'
 
 
 class Cancelled(Exception):
@@ -171,7 +171,7 @@ def install(folder):
     except importlib.metadata.PackageNotFoundError:raise ValueError('选中的环境尚未安装灵宠屋，请重新选择原小屋的安装位置。') from None
     if not Path(dist.locate_file('')).resolve().is_relative_to(Path(sys.prefix).resolve()):
         raise ValueError('此小屋安装在共享环境。请选择原项目专用的虚拟环境。')
-    if dist.version not in ('0.1.0','0.2.0','0.3.0','0.3.1',VERSION):
+    if dist.version not in ('0.1.0','0.2.0','0.3.0','0.3.1','0.3.2',VERSION):
         raise ValueError('此版本的更新包不适用于当前小屋，请检查发布页。')
     wheel=verified_wheel(folder)
     wheels=[] if dist.version==VERSION else [wheel]
