@@ -14,3 +14,5 @@ data/
 *.wal
 *.shm
 credentials.json
+creation-settings.json
+passport-bridge.json

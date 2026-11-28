@@ -40,3 +40,9 @@ def test_release_rejects_quoted_json_credentials():
         result=scan('examples/config.json',json.dumps({key:fake}).encode())
         assert 'credential_literal' in result
         assert fake not in str(result)
+
+
+def test_release_rejects_household_settings_and_pairing_even_with_masked_values():
+    scan = checker().scan_entry
+    for name in ('creation-settings.json', 'passport-bridge.json'):
+        assert 'runtime_file' in scan('examples/' + name, b'{}')

@@ -22,7 +22,7 @@ def scan_entry(name,payload,deny=()):
         findings.append('unsafe_path')
     if any(p in ('.git','.venv','.uv-cache','.superpowers','data','__pycache__') for p in path.parts):
         findings.append('private_or_runtime_directory')
-    if path.name in ('.env','credentials.json','browser-url.txt') or path.suffix in ('.sqlite3','.sqlite','.db','.wal','.shm','.log','.pyc') or path.name.endswith(('-wal','-shm')):
+    if path.name in ('.env','credentials.json','browser-url.txt','creation-settings.json','passport-bridge.json') or path.suffix in ('.sqlite3','.sqlite','.db','.wal','.shm','.log','.pyc') or path.name.endswith(('-wal','-shm')):
         findings.append('runtime_file')
     if path.suffix.lower() in ('.png','.webp','.jpg','.jpeg'):
         try:
