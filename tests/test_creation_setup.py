@@ -164,3 +164,57 @@ def test_invalid_stored_consent_and_quota_cannot_start_requests(tmp_path):
     cfg=load_creation_settings(tmp_path)
     assert cfg.text.invalid and not cfg.text.ready
     assert cfg.notes_enabled is False and cfg.toys_enabled is False and cfg.daily_text_limit==0
+
+
+def test_invalid_legacy_image_routes_allow_room_start_and_valid_generation(tmp_path, monkeypatch):
+    for key,value in {'MODEL':'fiction','KEY':'fixture','ENDPOINT':'bad://generation'}.items():
+        monkeypatch.setenv('PET_NEST_IMAGE_'+key,value)
+    client,creds=client_for(tmp_path)
+    login(client,creds)
+    assert client.get('/api/nest').json()['image_generation_configured'] is False
+    assert client.get('/api/creation/settings').json()['image']['invalid']
+    monkeypatch.setenv('PET_NEST_IMAGE_ENDPOINT','https://fiction.example.test/generate')
+    monkeypatch.setenv('PET_NEST_IMAGE_EDIT_ENDPOINT','http://[broken')
+    client,creds=client_for(tmp_path)
+    login(client,creds)
+    state=client.get('/api/nest').json()
+    assert state['image_generation_configured'] and not state['image_edit_configured']
+    assert client.get('/api/creation/settings').json()['image']['ready']
+    monkeypatch.setenv('PET_NEST_IMAGE_ENDPOINT','https://fiction.example.test:badport/generate')
+    client,creds=client_for(tmp_path)
+    login(client,creds)
+    assert client.get('/api/nest').json()['image_generation_configured'] is False
+
+
+def test_source_history_and_available_material_are_reported_separately(tmp_path):
+    from cove_pet_nest.config import Settings
+    from cove_pet_nest.creation_setup import SettingsPatch, save_creation_settings, public_settings
+    from cove_pet_nest.creation_material import DAY
+    from cove_pet_nest.contracts import RelationshipEvent
+    from cove_pet_nest.relationships import record_relationship
+    from cove_pet_nest.service import build_service
+    service=build_service(Settings(tmp_path))
+    now=1_800_000_000
+    service.store.clock=lambda:now-20*DAY
+    service.adopt('cat','虚构猫','first',actor='user')
+    service.store.clock=lambda:now
+    provider={'endpoint':'https://fiction.example.test/unused','model':'fiction','key':'sample'}
+    save_creation_settings(service,SettingsPatch(text=provider,image=provider,notes_enabled=True,toys_enabled=True))
+    def event(event_id,days_ago,summary):
+        record_relationship(service.store,RelationshipEvent(event_id=event_id,occurred_at=now-days_ago*DAY,
+                                                            summary=summary,signals={'reading':1}))
+    event('empty',0,'')
+    event('old',15,'虚构海鸥')
+    waiting={'notes':'needs_interaction','toys':'needs_shared_interaction'}
+    status=public_settings(service)
+    assert status['sources']['relationship']
+    assert status['feature_status']==waiting
+    event('recent-for-toy',9,'虚构航船')
+    assert public_settings(service)['feature_status']=={**waiting,'toys':'waiting_opportunity'}
+    event('recent-for-both',1,'虚构灯塔')
+    assert public_settings(service)['feature_status']=={'notes':'waiting_opportunity','toys':'waiting_opportunity'}
+    with service.store.write() as db:
+        for kind,source in [('toy','recent-for-toy'),('toy','recent-for-both'),('note','recent-for-both')]:
+            db.execute("INSERT INTO creation_jobs(id,kind,source_id,material,status) VALUES(?,?,?,'{}','success')",
+                       (kind+source,kind,'relationship:'+source))
+    assert public_settings(service)['feature_status']==waiting

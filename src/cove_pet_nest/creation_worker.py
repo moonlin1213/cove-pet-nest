@@ -9,6 +9,15 @@ from .images.transport import ImageTransport
 from .store import NestError, encode, identifier
 
 
+def toy_source(db, now, rng):
+    return choose_source(db, 'toy', now - 14 * DAY, now, rng)
+
+
+def note_source(db, now, pet, rng):
+    since = max(now - 7 * DAY, pet['created_at'])
+    return choose_source(db, 'note', since, now, rng, pet['id'])
+
+
 def public_job(row):
     status=row['status']
     error=row['error']
@@ -74,8 +83,8 @@ class CreationWorker:
             if schedule['toy_due'] is None:
                 self._next_toy(db,now)
             elif cfg.image.ready and schedule['toy_due']<=now and not db.execute(
-                    "SELECT 1 FROM creation_jobs WHERE kind='toy' AND status!='success'").fetchone():
-                source=choose_source(db,'toy',now-14*DAY,now,self.rng)
+                    "SELECT 1 FROM creation_jobs WHERE kind='toy' AND status NOT IN ('success','superseded')").fetchone():
+                source=toy_source(db, now, self.rng)
                 if source:
                     recent=db.execute("""SELECT concept FROM creation_jobs WHERE kind='toy' AND status='success'
                                          ORDER BY rowid DESC LIMIT 8""")
@@ -92,7 +101,7 @@ class CreationWorker:
             ORDER BY p.id""",(now-DAY,now-3*DAY)).fetchall()
         self.rng.shuffle(candidates)
         for pet in candidates:
-            source=choose_source(db,'note',max(now-7*DAY,pet['created_at']),now,self.rng,pet['id'])
+            source=note_source(db, now, pet, self.rng)
             if source:
                 db.execute('UPDATE creation_schedule SET note_day=? WHERE id=1',(day,))
                 if self.rng.random()<0.30:
@@ -104,8 +113,58 @@ class CreationWorker:
         db.execute("""UPDATE creation_jobs SET status='unknown',error='interrupted_after_submission'
                       WHERE status='submitted' AND lease_until<=?""",(now,))
 
+    @staticmethod
+    def _source_is_current(db, row, now):
+        """Recheck eligibility inside the claim or delivery transaction."""
+        if row['kind'] == 'trial':
+            return True
+        since = now - 14 * DAY
+        if row['kind'] == 'note':
+            pet = db.execute("""SELECT created_at FROM pets WHERE id=? AND created_at<=?
+                                AND status='ready' AND (kind!='egg' OR stage>0)""",
+                             (row['pet_id'], now - DAY)).fetchone()
+            recent = db.execute("""SELECT 1 FROM keepsake_notes WHERE pet_id=?
+                                   AND kind!='arrival' AND created_at>?""", (row['pet_id'], now - 3 * DAY)).fetchone()
+            if not pet or recent:
+                return False
+            since = max(now - 7 * DAY, pet['created_at'])
+        source_id = row['source_id']
+        prefix, _, key = source_id.partition(':')
+        if prefix == 'care' and row['kind'] == 'note':
+            source = db.execute("""SELECT 1 FROM care_events WHERE id=? AND pet_id=?
+                                   AND created_at BETWEEN ? AND ?""", (key, row['pet_id'], since, now))
+        elif prefix == 'shared':
+            source = db.execute("""SELECT 1 FROM life_events WHERE id=? AND occurred_at BETWEEN ? AND ?
+                                   AND (? IS NULL OR EXISTS (SELECT 1 FROM life_participants
+                                       WHERE event_id=? AND pet_id=?))""",
+                                (source_id, since, now, row['pet_id'], source_id, row['pet_id']))
+        elif prefix == 'relationship':
+            source = db.execute("SELECT 1 FROM relationships WHERE id=? AND occurred_at BETWEEN ? AND ?",
+                                (key, since, now))
+        else:
+            return False
+        return source.fetchone() is not None
+
+    def _expire_source(self, db, row, now):
+        if self._source_is_current(db, row, now):
+            return False
+        db.execute("""UPDATE creation_jobs SET status='superseded',error='source_no_longer_eligible',
+                      lease_until=NULL WHERE id=?""", (row['id'],))
+        return True
+
+    def toy_image_eligible(self, db, job_id, now):
+        row = db.execute("SELECT * FROM creation_jobs WHERE id=? AND status='waiting_image'", (job_id,)).fetchone()
+        if row and not self._expire_source(db, row, now):
+            return True
+        db.execute("""UPDATE image_jobs SET status='superseded',error='source_no_longer_eligible',
+                      lease_until=NULL WHERE id=?""", (job_id,))
+        return False
+
     def _claim(self,db,cfg,job_id,now):
         day=self.store.day(now)
+        reserved = db.execute("SELECT * FROM creation_jobs WHERE id=? AND status='reserved'", (job_id,)).fetchone()
+        if not reserved or self._expire_source(db, reserved, now):
+            return None
         usage=db.execute('SELECT calls FROM creation_usage WHERE day=?',(day,)).fetchone()
         if (usage['calls'] if usage else 0)>=cfg.daily_text_limit:
             return None
@@ -124,7 +183,7 @@ class CreationWorker:
             with self.store.write() as db:
                 live=db.execute("SELECT 1 FROM creation_jobs WHERE id=? AND status='submitted' AND attempt=?",
                                 (row['id'],row['attempt'])).fetchone()
-                if not live:
+                if not live or self._expire_source(db, row, self.store.now()):
                     return
                 status='success'
                 if row['kind']=='toy':

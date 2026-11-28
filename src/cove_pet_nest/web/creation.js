@@ -3,7 +3,7 @@ const say = text => { el('notice').textContent = text; };
 const sourceNames = {relationship:'互动摘要',life:'共同生活',care:'宠物照顾'};
 const statusNames = {
   reserved:'等待生成', submitted:'正在请求服务', waiting_image:'等待玩具图片',
-  success:'已完成', failed:'服务未完成', unknown:'上次调用结果未知'
+  superseded:'素材已过期或已有近期纸条', success:'已完成', failed:'服务未完成', unknown:'上次调用结果未知'
 };
 
 async function api(path, body) {
@@ -28,7 +28,7 @@ async function api(path, body) {
 const readinessLabels = {
   off:'已关闭', invalid_text:'文字服务配置有误', needs_text:'等待文字服务配置',
   invalid_image:'图片服务配置有误', needs_image:'等待图片服务配置', text_limit_zero:'每日文字上限为零',
-  needs_shared_interaction:'等待宿主上报互动摘要或共同生活事件', needs_interaction:'等待一次宠物照顾、互动摘要或共同生活事件',
+  needs_shared_interaction:'等待近 14 天内尚未使用的互动摘要或共同生活事件', needs_interaction:'等待近 7 天内尚未使用、能写给这只宠物的照顾或互动记录',
   waiting_opportunity:'小屋运行时等待生成机会'
 };
 function showConfig(cfg, {preserveForm = false} = {}) {

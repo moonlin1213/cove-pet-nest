@@ -4,12 +4,14 @@ import json
 import ipaddress
 from urllib.parse import urlsplit
 import os
+import random
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 
 from pydantic import Field, StrictBool, StrictInt
 
 from .contracts import RelationshipEvent, StrictModel
+from .creation_worker import note_source, toy_source
 from .images.transport import endpoint_url
 from .relationships import record_relationship
 from .store import NestError, PetStore
@@ -189,6 +191,16 @@ def public_settings(service):
         relationship = bool(has_relationships and db.execute('SELECT 1 FROM relationships LIMIT 1').fetchone())
         care = bool(db.execute('SELECT 1 FROM care_events LIMIT 1').fetchone())
         life = bool(db.execute("SELECT 1 FROM life_events WHERE kind NOT LIKE 'care_%' LIMIT 1").fetchone())
+        # Use the same windows and source filters as the worker, without touching
+        # its random stream, schedules, claims or daily quota.
+        now = service.store.now()
+        probe = random.Random(0)
+        toy_material = cfg.toys_enabled and bool(toy_source(db, now, probe))
+        note_material = False
+        if cfg.notes_enabled:
+            pets = db.execute("SELECT id,created_at FROM pets WHERE status='ready' AND (kind!='egg' OR stage>0)")
+            note_material = any(note_source(db, now, pet, probe) for pet in pets)
+
     def readiness(enabled, has_material, *, image_required=False):
         if not enabled:
             return 'off'
@@ -202,8 +214,8 @@ def public_settings(service):
             return 'needs_shared_interaction' if image_required else 'needs_interaction'
         return 'waiting_opportunity'
 
-    feature_status = {'notes':readiness(cfg.notes_enabled, relationship or life or care),
-                      'toys':readiness(cfg.toys_enabled, relationship or life, image_required=True)}
+    feature_status = {'notes':readiness(cfg.notes_enabled, note_material),
+                      'toys':readiness(cfg.toys_enabled, toy_material, image_required=True)}
     return {'feature_status':feature_status,'notes_enabled':cfg.notes_enabled,'toys_enabled':cfg.toys_enabled,
             'daily_text_limit':cfg.daily_text_limit,'text':cfg.text.status(),'image':cfg.image.status(),
             'sources':{'relationship':relationship,'care':care,'life':life}}

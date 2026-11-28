@@ -72,5 +72,22 @@ class ImageTransport:
 
 
 def configured_transport():
-    endpoint,model,key=(os.environ.get(k) for k in ('PET_NEST_IMAGE_ENDPOINT','PET_NEST_IMAGE_MODEL','PET_NEST_IMAGE_KEY'))
-    return ImageTransport(endpoint,model,key,edit_endpoint=os.environ.get('PET_NEST_IMAGE_EDIT_ENDPOINT')) if all((endpoint,model,key)) else None
+    def optional_address(variable):
+        value = os.environ.get(variable)
+        if not value:
+            return None
+        try:
+            parsed = urlsplit(endpoint_url(value))
+            # Accessing port also checks its numeric syntax and range.
+            if parsed.port == 0 or parsed.username is not None or '\\' in value or any(c.isspace() for c in value):
+                return None
+        except ValueError:
+            return None
+        return value
+
+    endpoint = optional_address('PET_NEST_IMAGE_ENDPOINT')
+    model = os.environ.get('PET_NEST_IMAGE_MODEL')
+    key = os.environ.get('PET_NEST_IMAGE_KEY')
+    if not all((endpoint, model, key)):
+        return None
+    return ImageTransport(endpoint, model, key, edit_endpoint=optional_address('PET_NEST_IMAGE_EDIT_ENDPOINT'))
