@@ -61,7 +61,8 @@ def restore_backup(source:Path,new_data_dir:Path):
         path=source/name
         if path.is_symlink() or not path.is_file() or digest(path)!=expected:
             raise NestError('backup_hash_mismatch')
-    with sqlite3.connect(f'file:{source / "pets.sqlite3"}?mode=ro',uri=True) as db:
+    database_uri=(source/'pets.sqlite3').resolve().as_uri()+'?mode=ro'
+    with sqlite3.connect(database_uri,uri=True) as db:
         if db.execute('PRAGMA quick_check').fetchone()[0]!='ok':
             raise NestError('backup_database_invalid')
     new_data_dir.mkdir(mode=0o700,parents=True)

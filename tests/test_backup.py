@@ -37,3 +37,12 @@ def test_backup_preserves_imported_assets(tmp_path):
     create_backup(s,tmp_path/'backup')
     restore_backup(tmp_path/'backup',tmp_path/'new')
     assert (tmp_path/'new/assets'/imported['asset_ref']).is_file()
+
+
+def test_restore_checks_the_database_in_a_folder_with_url_punctuation(tmp_path):
+    from cove_pet_nest.backup import create_backup,restore_backup
+    source=make_store(tmp_path/'source')
+    backup=tmp_path/'小屋#1'
+    create_backup(source,backup)
+    restore_backup(backup,tmp_path/'restored')
+    assert not (tmp_path/'小屋').exists()
