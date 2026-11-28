@@ -1,6 +1,5 @@
 """Only the signed-in local household can opt into creation."""
 import os
-from pathlib import Path
 
 from test_http import client_for, login
 
@@ -82,3 +81,86 @@ def test_upgrade_guide_is_present_at_both_entrypoints_with_port_independent_link
     guide=c.get("/creation/guide")
     assert guide.status_code == 200 and "工程 agent" in guide.text
     assert "/api/integration/relationship" in guide.text
+    assert "首次安装" in guide.text and "browser-url.txt" in guide.text
+
+
+def test_creation_accepts_loopback_http_but_blocks_plain_http_remote_including_env(tmp_path, monkeypatch):
+    from cove_pet_nest.creation_setup import load_creation_settings
+    c,creds=client_for(tmp_path)
+    login(c,creds)
+    route='/api/creation/settings'
+    monkeypatch.setenv('PET_NEST_TEXT_MODEL','demo')
+    monkeypatch.setenv('PET_NEST_TEXT_KEY','fixture')
+    monkeypatch.setenv('PET_NEST_TEXT_ENDPOINT','http://remote.example.test/chat')
+    assert c.get(route).json()['text'].get('invalid') is True
+    assert not load_creation_settings(tmp_path).text.ready
+    for endpoint in ('http://lan.example.test/image', 'http://127.0.0.1.evil.test/image',
+                     'https://user@elsewhere.test', 'https://@elsewhere.test', 'https://host.test:invalid/chat'):
+        assert c.post(route,json={'image':{'endpoint':endpoint,'model':'demo','key':'fixture'}}).status_code==422
+    for host in ('127.0.0.1','localhost','[::1]'):
+        result=c.post(route,json={'image':{'endpoint':f'http://{host}:8080/image','model':'demo','key':'fixture'}})
+        assert result.status_code==200
+        assert load_creation_settings(tmp_path).image.ready
+    monkeypatch.setenv('PET_NEST_TEXT_ENDPOINT','https://remote.example.test/chat')
+    monkeypatch.setenv('PET_NEST_TEXT_KEY','contains\nnewline')
+    assert c.get(route).json()['text'].get('invalid') is True
+
+
+def test_care_only_is_a_note_source_but_not_a_toy_source(tmp_path):
+    c, creds=client_for(tmp_path)
+    login(c,creds)
+    provider={'endpoint':'https://fiction.example.test/model','model':'test','key':'fixture'}
+    c.post('/api/creation/settings',json={'text':provider,'image':provider,'notes_enabled':True,'toys_enabled':True})
+    pet=c.post('/api/adoptions',json={'kind':'cat','name':'虚构猫','request_id':'fiction-cat'}).json()['pet']
+    c.post('/api/care',json={'action':'comfort','pet_ids':[pet['id']],'request_id':'fiction-care'}).raise_for_status()
+    state=c.post('/api/creation/diagnostic',json={}).json()['settings']
+    assert state['sources']=={'care':True,'life':False,'relationship':False}
+    assert state['feature_status']=={'notes':'waiting_opportunity','toys':'needs_shared_interaction'}
+
+
+def test_windows_secret_storage_writes_only_account_protected_keys(tmp_path, monkeypatch):
+    from cove_pet_nest import creation_setup as setup
+    monkeypatch.setattr(setup,'WINDOWS',True)
+    sealed='fake-dpapi-ciphertext'
+    protected=[]
+    def protect(raw):
+        protected.append(raw)
+        return sealed
+    monkeypatch.setattr(setup,'protect_key',protect)
+    monkeypatch.setattr(setup,'unprotect_key',lambda value:protected[0] if value==sealed else None)
+    c, creds=client_for(tmp_path)
+    login(c,creds)
+    state=c.post('/api/creation/settings',json={'text':{'endpoint':'https://fiction.example.test/chat',
+        'model':'demo','key':'private-fixture'},'notes_enabled':True})
+    assert state.status_code==200 and state.json()['text']['ready']
+    stored=(tmp_path/'creation-settings.json').read_text()
+    assert sealed in stored and 'private-fixture' not in stored
+    assert setup.load_creation_settings(tmp_path).text.key=='private-fixture'
+    protected.clear()
+    def unavailable(_):
+        raise OSError('unavailable')
+    monkeypatch.setattr(setup,'protect_key',unavailable)
+    result=c.post('/api/creation/settings',json={'image':{'endpoint':'https://fiction.example.test/img',
+        'model':'demo','key':'another-private-fixture'}})
+    assert result.status_code==503 and (tmp_path/'creation-settings.json').read_text()==stored
+    # A copied POSIX file must not be rewritten into another plaintext temp or final file.
+    (tmp_path/'creation-settings.json').write_text('{"text":{"key":"imported-private-fixture"}}')
+    assert c.post('/api/creation/settings',json={'daily_text_limit':4}).status_code==409
+    assert c.post('/api/creation/settings',json={'reset_text':True}).status_code==200
+
+
+def test_real_windows_dpapi_roundtrip():
+    import pytest
+    if os.name!='nt':
+        pytest.skip('native Windows DPAPI')
+    from cove_pet_nest.windows_secrets import protect_key,unprotect_key
+    value='private-fixture'
+    sealed=protect_key(value)
+    assert value not in sealed and unprotect_key(sealed)==value
+
+def test_invalid_stored_consent_and_quota_cannot_start_requests(tmp_path):
+    from cove_pet_nest.creation_setup import load_creation_settings
+    (tmp_path/'creation-settings.json').write_text('{"text":"broken","daily_text_limit":"9","notes_enabled":"yes","toys_enabled":42}')
+    cfg=load_creation_settings(tmp_path)
+    assert cfg.text.invalid and not cfg.text.ready
+    assert cfg.notes_enabled is False and cfg.toys_enabled is False and cfg.daily_text_limit==0

@@ -17,31 +17,35 @@ async function api(path, body) {
   const data=await response.json();
   if (!response.ok) {
     const reasons = {invalid_provider:'请检查模型名、服务完整地址和密钥。', invalid_provider_update:'请选择填写新服务或清除本机覆盖。',
+      reenter_provider_after_move:'请重新填写或清除从其他系统复制的模型配置，再保存。',
+      creation_secret_storage_failed:'当前 Windows 账户未能保护密钥。请检查本机账户后重试。',
       invalid_request:'请核对必填项和确认信息。', daily_limit:'今日调用额度已用完。', invalid_creation_settings:'本机配置文件需要修复。'};
     throw Error(reasons[data.error] || '本次操作未完成，请刷新查看任务状态。');
   }
   return data;
 }
 
-function showConfig(cfg) {
+const readinessLabels = {
+  off:'已关闭', invalid_text:'文字服务配置有误', needs_text:'等待文字服务配置',
+  invalid_image:'图片服务配置有误', needs_image:'等待图片服务配置', text_limit_zero:'每日文字上限为零',
+  needs_shared_interaction:'等待宿主上报互动摘要或共同生活事件', needs_interaction:'等待一次宠物照顾、互动摘要或共同生活事件',
+  waiting_opportunity:'小屋运行时等待生成机会'
+};
+function showConfig(cfg, {preserveForm = false} = {}) {
   for (const kind of ['text','image']) {
     const provider=cfg[kind];
     el(kind+'State').textContent = provider.ready
-      ? (provider.source==='environment'?'已沿用启动环境':'已保存本机配置') : '待配置';
+      ? (provider.source==='environment'?'已沿用启动环境':'已保存本机配置') : provider.invalid ? '配置有误，请检查服务地址、模型名和密钥' : '待配置';
   }
   el('sources').textContent=Object.entries(sourceNames).map(([key,name])=>name+(cfg.sources[key]?'已收到':'暂无记录')).join(' · ');
-  el('dailyTextLimit').value=cfg.daily_text_limit;
-  el('notesEnabled').checked=cfg.notes_enabled;el('toysEnabled').checked=cfg.toys_enabled;
+  if (!preserveForm) {
+    el('dailyTextLimit').value=cfg.daily_text_limit;
+    el('notesEnabled').checked=cfg.notes_enabled;
+    el('toysEnabled').checked=cfg.toys_enabled;
+  }
   el('trial').disabled=!cfg.text.ready || cfg.daily_text_limit===0;
-  const messages=[];
-  if(cfg.notes_enabled || cfg.toys_enabled) {
-    if(!cfg.text.ready) messages.push('等待文字服务配置。');
-    if(cfg.toys_enabled && !cfg.image.ready) messages.push('玩具等待图片服务配置。');
-    if(!Object.values(cfg.sources).some(Boolean)) messages.push('等待这座小屋的真实互动。');
-    if(cfg.daily_text_limit===0) messages.push('每日文字上限为零。');
-    if(!messages.length) messages.push('已开启后台创作，小屋运行时会等待生成机会。');
-  } else messages.push('后台创作已关闭。');
-  el('activity').textContent=messages.join(' ');
+  el('activity').textContent=['宠物纸条 · '+readinessLabels[cfg.feature_status.notes],
+                              '惊喜玩具 · '+readinessLabels[cfg.feature_status.toys]].join('。');
   el('setup').hidden=el('checkPanel').hidden=false;el('loginHint').hidden=true;
 }
 
@@ -99,6 +103,7 @@ el('diagnose').onclick=async()=>{
   el('diagnose').disabled=true;
   try{
     const result=await api('diagnostic',{});
+    showConfig(result.settings, {preserveForm:true});
     say(result.stored && result.deduplicated && result.isolated
       ? '离线诊断通过。虚构事件已保存，重开后重复上报只记一次。没有调用模型。'
       : '离线诊断未通过。请检查当前小屋的数据目录。');

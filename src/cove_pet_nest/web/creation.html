@@ -7,7 +7,7 @@
 <aside class="creation-entry"><a href="/creation/guide">阅读工程 agent 配置指南</a><button type="button" data-copy-creation-guide>复制给工程 agent 的指引</button><span role="status" aria-live="polite"></span></aside>
 <p id="notice" role="status" aria-live="polite"></p><p id="loginHint" hidden>请先<a href="/">回到小屋登录</a>，再打开后台创作设置。</p>
 <form id="setup" hidden>
-<section><h2>文字服务 <small id="textState"></small></h2><p>文字模型会收到这家人近期的互动摘要或照顾片段，用来写纸条和构思玩具。</p>
+<section><h2>文字服务 <small id="textState"></small></h2><p>文字模型会收到这家人近期的互动摘要或照顾片段，用来写纸条和构思玩具。服务地址使用 HTTPS，本机地址也支持 HTTP。</p>
 <details><summary>配置文字服务</summary><label>完整的聊天补全地址<input id="textEndpoint" type="url" placeholder="https://…/v1/chat/completions" autocomplete="off"></label>
 <label>模型名<input id="textModel" maxlength="256"></label><label>服务密钥<input id="textKey" type="password" autocomplete="new-password"></label>
 <label><input id="textReset" type="checkbox">清除本机覆盖，恢复使用启动环境设置</label></details></section>

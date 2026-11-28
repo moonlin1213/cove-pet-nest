@@ -1,6 +1,8 @@
 """Household-local creation settings. Provider secrets stay outside the pet database."""
 from dataclasses import dataclass, field
 import json
+import ipaddress
+from urllib.parse import urlsplit
 import os
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
@@ -11,7 +13,9 @@ from .contracts import RelationshipEvent, StrictModel
 from .images.transport import endpoint_url
 from .relationships import record_relationship
 from .store import NestError, PetStore
+from .windows_secrets import protect_key, unprotect_key
 
+WINDOWS = os.name == 'nt'
 CONFIG_NAME = 'creation-settings.json'
 DEFAULT_TEXT_LIMIT = 3
 
@@ -22,13 +26,17 @@ class Provider:
     model: str = ''
     key: str = field(default='', repr=False)
     source: str = 'missing'
+    invalid: bool = False
 
     @property
     def ready(self):
         return bool(self.endpoint and self.model and self.key)
 
     def status(self):
-        return {'ready': self.ready, 'source': self.source}
+        result = {'ready': self.ready, 'source': self.source}
+        if self.invalid:
+            result['invalid'] = True
+        return result
 
 
 @dataclass(frozen=True)
@@ -70,18 +78,52 @@ def _read(data_dir):
         raise NestError('invalid_creation_settings', 409) from None
 
 
+def _checked_provider(values, source):
+    endpoint, model, key = (values.get(k, '') for k in ('endpoint','model','key'))
+    if not all(isinstance(v, str) for v in (endpoint, model, key)):
+        raise ValueError('invalid provider fields')
+    if any(ord(c) < 32 or ord(c) == 127 for v in (endpoint, model, key) for c in v):
+        raise ValueError('invalid provider fields')
+    if endpoint:
+        parsed = urlsplit(endpoint_url(endpoint))
+        if '\\' in endpoint or any(c.isspace() for c in endpoint) or parsed.port == 0 or parsed.username is not None:
+            raise ValueError('invalid provider address')
+        if parsed.scheme == 'http' and parsed.hostname != 'localhost':
+            if not ipaddress.ip_address(parsed.hostname).is_loopback:
+                raise ValueError('plain HTTP requires loopback')
+    if any(v != v.strip() for v in (model, key)):
+        raise ValueError('invalid provider fields')
+    key.encode('ascii')
+    return Provider(endpoint, model, key, source)
+
+
 def _provider(name, raw):
-    if name in raw:
-        return Provider(**raw[name], source='household')
-    prefix = 'PET_NEST_' + name.upper() + '_'
-    values = [os.environ.get(prefix+field_name, '') for field_name in ('ENDPOINT','MODEL','KEY')]
-    return Provider(*values, source='environment' if any(values) else 'missing')
+    source = 'household' if name in raw else 'environment'
+    try:
+        if name in raw:
+            values = raw[name]
+            if not isinstance(values, dict):
+                raise ValueError('invalid provider fields')
+            if WINDOWS or 'account_protected' in values:
+                values = json.loads(unprotect_key(values['account_protected']))
+                if not isinstance(values, dict):
+                    raise ValueError('invalid provider fields')
+        else:
+            prefix = 'PET_NEST_' + name.upper() + '_'
+            values = {k:os.environ.get(prefix+k.upper(),'') for k in ('endpoint','model','key')}
+            if not any(values.values()):
+                return Provider()
+        return _checked_provider(values, source)
+    except (OSError, TypeError, ValueError, KeyError):
+        return Provider(source=source, invalid=True)
 
 
 def load_creation_settings(data_dir):
     raw = _read(data_dir)
-    return CreationSettings(raw.get('notes_enabled',False), raw.get('toys_enabled',False),
-                            raw.get('daily_text_limit', DEFAULT_TEXT_LIMIT),
+    limit = raw.get('daily_text_limit', DEFAULT_TEXT_LIMIT)
+    if type(limit) is not int or not 0 <= limit <= 100:
+        limit = 0
+    return CreationSettings(raw.get('notes_enabled') is True, raw.get('toys_enabled') is True, limit,
                             _provider('text',raw), _provider('image',raw))
 
 
@@ -99,18 +141,28 @@ def save_creation_settings(service, patch):
                 raw.pop(name,None)
             if provider:
                 values = {k:v.strip() for k,v in provider.model_dump().items()}
-                if any(not v or any(ord(c)<32 or ord(c)==127 for c in v) for v in values.values()):
-                    raise NestError('invalid_provider')
                 try:
-                    endpoint_url(values['endpoint'])
-                    values['key'].encode('ascii')
-                except (ValueError, UnicodeError):
+                    checked = _checked_provider(values, 'household')
+                    if not checked.ready:
+                        raise ValueError('incomplete provider')
+                except ValueError:
                     raise NestError('invalid_provider') from None
-                raw[name] = values
+                if WINDOWS:
+                    try:
+                        # Bind the destination to its credential in the same protected envelope.
+                        raw[name] = {'account_protected':protect_key(json.dumps(values))}
+                    except OSError:
+                        raise NestError('creation_secret_storage_failed', 503) from None
+                else:
+                    raw[name] = values
         for name in ('notes_enabled', 'toys_enabled', 'daily_text_limit'):
             value = getattr(patch, name)
             if value is not None:
                 raw[name] = value
+        if WINDOWS:
+            for kind in ('text', 'image'):
+                if kind in raw and (not isinstance(raw[kind], dict) or set(raw[kind]) != {'account_protected'}):
+                    raise NestError('reenter_provider_after_move', 409)
         with NamedTemporaryFile('w', encoding='utf-8', dir=folder, delete=False) as out:
             temporary = Path(out.name)
             try:
@@ -137,7 +189,22 @@ def public_settings(service):
         relationship = bool(has_relationships and db.execute('SELECT 1 FROM relationships LIMIT 1').fetchone())
         care = bool(db.execute('SELECT 1 FROM care_events LIMIT 1').fetchone())
         life = bool(db.execute("SELECT 1 FROM life_events WHERE kind NOT LIKE 'care_%' LIMIT 1").fetchone())
-    return {'notes_enabled':cfg.notes_enabled,'toys_enabled':cfg.toys_enabled,
+    def readiness(enabled, has_material, *, image_required=False):
+        if not enabled:
+            return 'off'
+        if not cfg.text.ready:
+            return 'invalid_text' if cfg.text.invalid else 'needs_text'
+        if image_required and not cfg.image.ready:
+            return 'invalid_image' if cfg.image.invalid else 'needs_image'
+        if not cfg.daily_text_limit:
+            return 'text_limit_zero'
+        if not has_material:
+            return 'needs_shared_interaction' if image_required else 'needs_interaction'
+        return 'waiting_opportunity'
+
+    feature_status = {'notes':readiness(cfg.notes_enabled, relationship or life or care),
+                      'toys':readiness(cfg.toys_enabled, relationship or life, image_required=True)}
+    return {'feature_status':feature_status,'notes_enabled':cfg.notes_enabled,'toys_enabled':cfg.toys_enabled,
             'daily_text_limit':cfg.daily_text_limit,'text':cfg.text.status(),'image':cfg.image.status(),
             'sources':{'relationship':relationship,'care':care,'life':life}}
 
