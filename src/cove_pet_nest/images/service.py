@@ -20,6 +20,16 @@ class ImageJobService:
                 brief TEXT,status TEXT,attempt INTEGER DEFAULT 0,lease_until REAL,day TEXT,error TEXT,asset_ref TEXT,
                 UNIQUE(pet_id,stage))''')
             ensure_history(db,store)
+            # v0.3.2 retained only the latest submission day and total attempts.
+            # Assign that historical total to its last known day conservatively.
+            has_ledger=db.execute("SELECT 1 FROM sqlite_master WHERE name='image_submissions'").fetchone()
+            if not has_ledger:
+                db.execute("""CREATE TABLE image_submissions(job_id TEXT NOT NULL, attempt INTEGER NOT NULL,
+                              day TEXT NOT NULL, units INTEGER NOT NULL CHECK(units>0), PRIMARY KEY(job_id,attempt))""")
+                db.execute("""INSERT INTO image_submissions SELECT id,attempt,day,MAX(1,attempt) FROM image_jobs
+                              WHERE day IS NOT NULL AND (attempt>0 OR status IN ('success','submitted','failed','unknown'))""")
+                db.execute("CREATE INDEX image_submissions_day ON image_submissions(day)")
+
 
     @staticmethod
     def public(row):
@@ -106,13 +116,15 @@ class ImageJobService:
         with self.store.write() as db:
             now=self.store.now(); day=self.store.day(now)
             db.execute("UPDATE image_jobs SET status='unknown',error='interrupted_after_submission' WHERE status='submitted' AND lease_until<?",(now,))
-            count=db.execute("SELECT COUNT(*) FROM image_jobs WHERE day=? AND status IN ('success','submitted')",(day,)).fetchone()[0]
+            count=db.execute("SELECT COALESCE(SUM(units),0) FROM image_submissions WHERE day=?",(day,)).fetchone()[0]
             if count>=3:
                 return {'status':'daily_limit'}
             candidates=db.execute("SELECT * FROM image_jobs WHERE status='reserved' ORDER BY CASE purpose WHEN 'stage' THEN 0 WHEN 'photo' THEN 1 ELSE 2 END,rowid").fetchall()
             for row in candidates:
                 if row['purpose']=='toy':
-                    transport=self.creation.toy_image_client() if self.creation else None
+                    if not self.creation or not self.creation.toy_image_eligible(db,row['id'],now):
+                        continue
+                    transport=self.creation.toy_image_client()
                 else:
                     transport=self.transport
                 if transport and (not json.loads(row['brief']).get('reference_required') or getattr(transport,'can_reference',True)):
@@ -122,6 +134,7 @@ class ImageJobService:
                     return {'status':'needs_image_configuration'}
                 return {'status':'needs_image_edit_configuration' if candidates else 'idle'}
             attempt=row['attempt']+1
+            db.execute("INSERT INTO image_submissions(job_id,attempt,day,units) VALUES(?,?,?,1)",(row['id'],attempt,day))
             db.execute("UPDATE image_jobs SET status='submitted',attempt=?,lease_until=?,day=? WHERE id=?",(attempt,now+180,day,row['id']))
         try:
             brief=json.loads(row['brief'])
@@ -138,6 +151,8 @@ class ImageJobService:
                 if active['status']!='submitted' or active['attempt']!=attempt:
                     return {'status':'stale_result'}
                 if row['purpose']=='toy':
+                    if not self.creation.toy_image_eligible(db,row['id'],self.store.now()):
+                        return {'status':'stale_result'}
                     self.creation.complete_toy(db,row['id'],forms)
                 elif row['purpose']=='stage':
                     pet=db.execute('SELECT * FROM pets WHERE id=?',(row['pet_id'],)).fetchone()

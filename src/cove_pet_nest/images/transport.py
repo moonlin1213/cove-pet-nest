@@ -4,6 +4,8 @@ import os
 from urllib.parse import urlsplit
 import httpx
 from ..store import NestError
+from ..provider_network import trust_environment_proxy
+from ..toy_appearance import render_appearance
 
 
 def endpoint_url(value):
@@ -31,7 +33,7 @@ class ImageTransport:
         if toy:
             prompt=(style+'One square transparent 2x2 sprite sheet. Show the same handmade toy in four distinct '
                     'playful forms, one complete centered object per equally sized cell with transparent margins. '
-                    'Render this appearance: '+brief['appearance'])
+                    'Render this appearance: '+render_appearance(brief.get('appearance')))
         elif photo:
             events={'care_feed':'a pet calmly enjoying its food','care_play':'a pet playing peacefully','care_comfort':'a pet resting contentedly after care',
                 'reading':'pets beside an open picture book','watching':'pets quietly watching a blank story screen','listening':'pets beside a small music box',
@@ -56,9 +58,11 @@ class ImageTransport:
             request={'json':{**fields,'n':1}}
         else:
             request={'data':fields,'files':[('image[]',(f'reference-{i+1}.png',raw,'image/png')) for i,raw in enumerate(reference)]}
-        async with httpx.AsyncClient(timeout=120,follow_redirects=False,transport=self.http_transport) as client:
+        async with httpx.AsyncClient(timeout=120,follow_redirects=False,transport=self.http_transport,trust_env=trust_environment_proxy(url)) as client:
             async with client.stream('POST',url,headers={'Authorization':f'Bearer {self.key}'},**request) as response:
-                if response.status_code>=400:raise NestError('image_provider_rejected')
+                if 400<=response.status_code<500 and response.status_code!=408:
+                    raise NestError('image_provider_rejected')
+                response.raise_for_status()
                 body=bytearray()
                 async for chunk in response.aiter_bytes():
                     body.extend(chunk)

@@ -2,6 +2,7 @@
 import json
 import re
 from .store import NestError
+from .toy_appearance import render_appearance
 
 DAY = 86400
 LIFE = {'reading':'共读','watching':'共影','listening':'共听','exploration':'一起探索','companionship':'一起相伴'}
@@ -66,8 +67,9 @@ def validate_answer(kind, answer, material):
     if quote not in source['fact'] or (kind!='toy' and source['type']=='care' and quote!=source['fact']):
         raise NestError('unsupported_creation_evidence')
     if kind=='toy':
-        return {'name':clean_field(answer,'name',40),'origin':quote,
-                'appearance':clean_field(answer,'appearance',240)}
+        appearance=answer.get('appearance')
+        render_appearance(appearance)
+        return {'name':clean_field(answer,'name',40),'origin':quote,'appearance':appearance}
     style,ending = answer.get('kind'),clean_field(answer,'ending',32)
     if style not in ('observation','snack','affection','doodle') or (ending not in ENDINGS and not PET_VOICE.fullmatch(ending)):
         raise NestError('invalid_creation_result')

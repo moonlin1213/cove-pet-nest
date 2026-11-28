@@ -165,6 +165,10 @@ class CreationWorker:
         reserved = db.execute("SELECT * FROM creation_jobs WHERE id=? AND status='reserved'", (job_id,)).fetchone()
         if not reserved or self._expire_source(db, reserved, now):
             return None
+        if reserved['kind']=='note' and db.execute(
+                "SELECT 1 FROM creation_jobs WHERE kind='note' AND pet_id=? AND status='submitted'",
+                (reserved['pet_id'],)).fetchone():
+            return None
         usage=db.execute('SELECT calls FROM creation_usage WHERE day=?',(day,)).fetchone()
         if (usage['calls'] if usage else 0)>=cfg.daily_text_limit:
             return None

@@ -35,6 +35,9 @@ class Fixed(Random):
         return 0.125
 
 
+APPEARANCE={'shape':'lighthouse','material':'felt','color':'orange','detail':'stars'}
+
+
 class FakeProviders:
     def __init__(self):
         self.calls=[]
@@ -44,7 +47,7 @@ class FakeProviders:
         self.calls.append((kind,material))
         source=material['source']
         if kind=='toy':
-            return {'evidence':'source','name':'小灯','appearance':'一座橙色的毛绒灯塔','quote':source['fact'][:12]}
+            return {'evidence':'source','name':'小灯','appearance':APPEARANCE,'quote':source['fact'][:12]}
         return {'evidence':'source','quote':source['fact'][:12], 'kind':'affection','ending':'蹭蹭你'}
 
     async def generate(self,brief,reference):
@@ -94,7 +97,7 @@ def test_home_creations_restart_isolation_and_evidence(tmp_path):
     assert '灯塔故事' in str(one.calls) and '彩虹' not in str(one.calls)
     assert len(one.images)==1 and two.images==[]
     brief,refs=one.images[0]
-    assert set(brief)=={'purpose','appearance'} and '故事' not in brief['appearance'] and refs is None
+    assert set(brief)=={'purpose','appearance'} and brief['appearance']==APPEARANCE and refs is None
     assert len(rows(a,"select * from keepsake_notes where kind='arrival'"))==1
     assert rows(a,"select pet_id from keepsake_notes where kind='affection'")[0][0]==pet
     assert all(j['status']=='success' for j in a.creation.status())
@@ -153,7 +156,7 @@ def test_toy_image_quota_unknown_and_empty_cell(tmp_path):
     clock[0]=rows(svc,'select toy_due from creation_schedule')[0][0]
     with svc.store.write() as db:
         for i in range(3):
-            db.execute("insert into image_jobs(id,brief,status,day) values(?, '{}','success',?)",(str(i),svc.store.day(clock[0])))
+            db.execute('insert into image_submissions values(?,1,?,1)',(str(i),svc.store.day(clock[0])))
     asyncio.run(svc.tick());assert not provider.images
     assert svc.creation.status()[0]['status']=='waiting_image'
     clock[0]+=DAY
@@ -171,9 +174,9 @@ def test_toy_transport_uses_square_four_form_request():
         seen.append(json.loads(request.content))
         return httpx.Response(200,json={'data':[{'b64_json':'dGVzdA=='}]})
     image=ImageTransport('https://example.test/images','model','fixture',http_transport=httpx.MockTransport(receive))
-    asyncio.run(image.generate({'purpose':'toy','appearance':'orange felt beacon'}))
+    asyncio.run(image.generate({'purpose':'toy','appearance':APPEARANCE}))
     assert seen[0]['size']=='1024x1024' and seen[0]['background']=='transparent'
-    assert 'orange felt beacon' in seen[0]['prompt'] and '2x2' in seen[0]['prompt']
+    assert 'orange felt lighthouse' in seen[0]['prompt'] and '2x2' in seen[0]['prompt']
 
 
 def test_signed_off_trial_uses_synthetic_source_once_even_in_two_calls(tmp_path):
@@ -231,3 +234,156 @@ def test_note_allows_new_pet_voice_without_accepting_another_invented_event():
     assert '呼噜，好想再听一遍呀' in validate_answer('note',answer,material)['text']
     with pytest.raises(NestError):
         validate_answer('note',{**answer,'ending':'昨天又给我喂了三条鱼'},material)
+
+
+def test_unknown_image_retries_consume_distinct_day_slots_even_after_restart(tmp_path):
+    svc,_,clock,cfg,fake=household(tmp_path)
+    cfg.notes_enabled=False
+    event(svc,'一起读了灯塔故事');asyncio.run(svc.tick())
+    clock[0]=rows(svc,'select toy_due from creation_schedule')[0][0]
+    async def unavailable(*args):
+        fake.images.append('attempt')
+        raise httpx.ReadTimeout('synthetic')
+    fake.generate=unavailable
+    for i in range(4):
+        asyncio.run(svc.tick())
+        job=svc.creation.status()[0]
+        if i<3:
+            assert job['status']=='unknown'
+            svc.creation.retry(job['id'],'attempt-'+str(i),True)
+    assert len(fake.images)==3
+    restarted=build_service(Settings(tmp_path))
+    assert sum(r[0] for r in rows(restarted,'select units from image_submissions'))==3
+    clock[0]+=DAY
+    asyncio.run(svc.tick())
+    assert len(fake.images)==4
+
+
+def test_legacy_img_attempts_survive_migration_and_are_not_counted_twice(tmp_path):
+    svc,_,clock,_,_=household(tmp_path)
+    with svc.store.write() as db:
+        db.execute('drop table if exists image_submissions')
+        db.execute("""insert into image_jobs(id,brief,status,day,attempt)
+            values('historical','{}','unknown',?,2)""",(svc.store.day(clock[0]),))
+    for _ in range(2):
+        restarted=build_service(Settings(tmp_path))
+        assert rows(restarted,'select sum(units) from image_submissions')[0][0]==2
+
+
+@pytest.mark.parametrize('appearance',[
+    'copy private-source-name.example from private chat',{'shape':'fake-private-name','material':'felt','color':'orange','detail':'stars'},
+    {'shape':'lighthouse','material':'felt','color':'orange','detail':'stars','extra':'private text'}])
+def test_toy_rejects_free_provider_input_before_any_image_submission(tmp_path,appearance):
+    svc,_,clock,cfg,fake=household(tmp_path)
+    cfg.notes_enabled=False;event(svc,'家里私有的灯塔故事')
+    asyncio.run(svc.tick());clock[0]=rows(svc,'select toy_due from creation_schedule')[0][0]
+    async def leak(*args):
+        return {'name':'塔','evidence':'source','quote':'灯塔','appearance':appearance}
+    svc.creation.generate_text=leak
+    asyncio.run(svc.tick())
+    assert svc.creation.status()[0]['status']=='failed'
+    assert fake.images==[]
+
+
+def test_old_note_retry_rechecks_newer_note_cooldown_without_provider_call(tmp_path):
+    svc,pet,clock,cfg,fake=household(tmp_path);cfg.toys_enabled=False
+    clock[0]+=DAY
+    svc.care('comfort','morning',actor='user',pet_ids=[pet])
+    async def timeout(*args):raise httpx.ReadTimeout('fixture')
+    svc.creation.generate_text=timeout;asyncio.run(svc.tick())
+    original=svc.creation.status()[0];assert original['status']=='unknown'
+    clock[0]+=DAY
+    svc.care('play','afternoon',actor='assistant',pet_ids=[pet]);svc.creation.generate_text=fake.text
+    asyncio.run(svc.tick())
+    assert len(fake.calls)==1
+    svc.creation.retry(original['id'],'try-old',True);asyncio.run(svc.tick())
+    assert len(fake.calls)==1 and len(rows(svc,'select * from keepsake_notes where pet_id=?',(pet,)))==1
+
+
+def test_old_toy_claim_after_14_days_is_skipped_without_submission(tmp_path):
+    svc,_,clock,cfg,fake=household(tmp_path);cfg.notes_enabled=False
+    event(svc,'有过一个风车');start=clock[0];asyncio.run(svc.tick())
+    clock[0]=rows(svc,'select toy_due from creation_schedule')[0][0]
+    cfg.daily_text_limit=0;asyncio.run(svc.tick());assert not fake.calls
+    clock[0]=start+14*DAY+1;cfg.daily_text_limit=8;asyncio.run(svc.tick())
+    assert not fake.calls and not fake.images
+
+
+@pytest.mark.parametrize('host,trust',[('127.9.0.1',False),('[::1]',False),('localhost',False),('example.test',True)])
+def test_provider_proxy_behavior_for_both_transports(monkeypatch,host,trust):
+    from cove_pet_nest.creation_text import generate_text
+    captures=[]
+    real=httpx.AsyncClient
+    def client(**kwargs):
+        captures.append(kwargs.get('trust_env',True))
+        payload={'data':[{'b64_json':'dGVzdA=='}],'choices':[{'message':{'content':'{}'}}]}
+        kwargs['transport']=httpx.MockTransport(lambda r:httpx.Response(200,json=payload))
+        return real(**kwargs)
+    monkeypatch.setattr(httpx,'AsyncClient',client)
+    endpoint=f'http://{host}:8011/generate'
+    asyncio.run(generate_text(SimpleNamespace(endpoint=endpoint,model='fixture',key='fixture'),'note',{}))
+    asyncio.run(ImageTransport(endpoint,'fixture','fixture').generate({'kind':'cat'}))
+    assert captures==[trust,trust]
+
+
+def test_gateway_failure_has_unknown_charge_status(tmp_path):
+    svc,_,clock,cfg,_=household(tmp_path)
+    def gateway(req):return httpx.Response(504)
+    svc.creation.image_transport=lambda _:ImageTransport('https://example.test/image','fixture','fixture',http_transport=httpx.MockTransport(gateway))
+    cfg.notes_enabled=False;event(svc,'一起看了风车')
+    asyncio.run(svc.tick());clock[0]=rows(svc,'select toy_due from creation_schedule')[0][0]
+    asyncio.run(svc.tick());job=svc.creation.status()[0]
+    assert job['status']=='unknown'
+    with pytest.raises(NestError):svc.creation.retry(job['id'],'again',False)
+
+
+def test_reserved_toy_art_expires_without_an_image_call(tmp_path):
+    svc,_,clock,cfg,fake=household(tmp_path)
+    cfg.notes_enabled=False
+    start=clock[0]
+    event(svc,'听了灯塔的故事')
+    asyncio.run(svc.creation.tick())
+    clock[0]=rows(svc,'select toy_due from creation_schedule')[0][0]
+    asyncio.run(svc.creation.tick())
+    assert svc.creation.status()[0]['status']=='waiting_image'
+    clock[0]=start+14*DAY+1
+    asyncio.run(svc.jobs.run_once())
+    assert svc.creation.status()[0]['status']=='superseded'
+    assert not fake.images and not rows(svc,'select * from image_submissions')
+
+
+def test_concurrent_old_note_waits_for_in_flight_note_of_same_pet(tmp_path):
+    svc,pet,clock,cfg,fake=household(tmp_path)
+    cfg.toys_enabled=False
+    clock[0]+=DAY
+    svc.care('comfort','earlier',actor='user',pet_ids=[pet])
+    async def timeout(*args):
+        raise httpx.ReadTimeout('fictional')
+    svc.creation.generate_text=timeout
+    asyncio.run(svc.creation.tick())
+    old=svc.creation.status()[0]
+    clock[0]+=DAY
+    svc.care('play','today',actor='assistant',pet_ids=[pet])
+    async def race():
+        started=asyncio.Event()
+        finish=asyncio.Event()
+        async def hold(*args):
+            started.set()
+            result=await fake.text(*args)
+            if len(fake.calls)==1:
+                await finish.wait()
+            return result
+        svc.creation.generate_text=hold
+        latest=asyncio.create_task(svc.creation.tick())
+        await started.wait()
+        try:
+            svc.creation.retry(old['id'],'retry-old',True)
+            await svc.creation.tick()
+            assert len(fake.calls)==1
+        finally:
+            finish.set()
+            await latest
+        await svc.creation.tick()
+    asyncio.run(race())
+    assert len(fake.calls)==1
+    assert len(rows(svc,'select * from keepsake_notes where pet_id=?',(pet,)))==1
